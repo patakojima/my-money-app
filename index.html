@@ -21,41 +21,45 @@
         @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
 
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .card { background: var(--card); padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .label { font-size: 10px; color: #8e8e93; font-weight: bold; margin-bottom: 4px; }
         .value { font-size: 24px; font-weight: 800; color: #1c1c1e; }
-        .unit { font-size: 12px; color: #8e8e93; margin-left: 4px; }
+        .unit { font-size: 11px; color: #8e8e93; margin-left: 4px; }
 
         .input-box { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         
-        /* DとFを縦に並べる（改行） */
-        .mode-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-        .mode-btn { border: 2px solid #e5e5ea; background: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; color: #8e8e93; width: 100%; text-align: center; }
+        /* DとFを横並び・正方形に近い縦長に */
+        .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .mode-btn { 
+            border: 2px solid #e5e5ea; background: none; 
+            padding: 25px 10px; /* 縦を長く */
+            border-radius: 12px; 
+            color: #8e8e93; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .mode-btn b { font-size: 22px; margin-bottom: 4px; } /* DやFの文字 */
+        .mode-btn span { font-size: 9px; font-weight: 200; font-family: monospace; letter-spacing: 0.5px; } /* 下段の細い文字 */
+
         .mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
         .mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
 
-        /* 3から11までのグリッド */
+        /* 3から11のグリッド */
         .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
         .num-btn { background: #f2f2f7; border: none; padding: 18px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #1c1c1e; }
         .num-btn:active { background: #e5e5ea; transform: scale(0.95); }
 
-        /* ログメッセージの調整（小さく、細く） */
         .log-msg { 
-            font-size: 9px; 
-            font-weight: 200; /* 細く */
-            color: #aeaeb2; 
-            text-align: center; 
-            margin-top: 15px; 
+            font-size: 9px; font-weight: 200; color: #aeaeb2; 
+            text-align: center; margin-top: 15px; 
             font-family: 'Courier New', Courier, monospace;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.4;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="sys-title">SYSTEM MONITOR V2.1</div>
+            <div class="sys-title">SYSTEM MONITOR V2.2</div>
             <div style="font-size: 10px; font-weight: bold;"><span class="status-dot"></span>LOGGING...</div>
         </div>
 
@@ -76,8 +80,14 @@
 
         <div class="input-box">
             <div class="mode-selector">
-                <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">D (Drink Mode)</button>
-                <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">F (Food Mode)</button>
+                <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">
+                    <b>D</b>
+                    <span>DRINK MODE</span>
+                </button>
+                <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">
+                    <b>F</b>
+                    <span>FOOD MODE</span>
+                </button>
             </div>
             <div class="num-grid">
                 <button class="num-btn" onclick="commit(3)">③</button>
@@ -124,7 +134,6 @@
             const msg = document.getElementById('log-msg');
             msg.innerHTML = `LAST COMMIT: ${currentMode}+${lastVal}00 SUCCESS<br>LOGGING TO CLOUD DATABASE...`;
             
-            // ログが流れるような色変化の演出
             msg.style.color = currentMode === 'D' ? '#FF9500' : '#34C759';
             setTimeout(() => { msg.style.color = '#aeaeb2'; }, 1500);
         }
