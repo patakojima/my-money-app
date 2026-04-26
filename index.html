@@ -6,46 +6,56 @@
     <title>Management Dashboard</title>
     <style>
         :root {
-            --primary: #007AFF; /* iOS Blue */
-            --drink: #FF9500;   /* Orange */
-            --food: #34C759;    /* Green */
+            --primary: #007AFF;
+            --drink: #FF9500;
+            --food: #34C759;
             --bg: #F2F2F7;
             --card: #FFFFFF;
         }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #1c1c1e; margin: 0; padding: 20px; }
         .container { max-width: 400px; margin: 0 auto; }
         
-        /* ヘッダー */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         .sys-title { font-weight: 800; font-size: 12px; color: var(--primary); letter-spacing: 1px; }
         .status-dot { width: 8px; height: 8px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
         @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
 
-        /* メイン数値 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
         .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .label { font-size: 10px; color: #8e8e93; font-weight: bold; margin-bottom: 4px; }
         .value { font-size: 24px; font-weight: 800; color: #1c1c1e; }
         .unit { font-size: 12px; color: #8e8e93; margin-left: 4px; }
 
-        /* 入力エリア */
         .input-box { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .mode-btn { border: 2px solid #e5e5ea; background: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; color: #8e8e93; }
+        
+        /* DとFを縦に並べる（改行） */
+        .mode-selector { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .mode-btn { border: 2px solid #e5e5ea; background: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; color: #8e8e93; width: 100%; text-align: center; }
         .mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
         .mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
 
+        /* 3から11までのグリッド */
         .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        .num-btn { background: #f2f2f7; border: none; padding: 18px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #1c1c1e; transition: 0.1s; }
+        .num-btn { background: #f2f2f7; border: none; padding: 18px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #1c1c1e; }
         .num-btn:active { background: #e5e5ea; transform: scale(0.95); }
 
-        .log-msg { font-size: 10px; color: #8e8e93; text-align: center; margin-top: 15px; font-family: monospace; }
+        /* ログメッセージの調整（小さく、細く） */
+        .log-msg { 
+            font-size: 9px; 
+            font-weight: 200; /* 細く */
+            color: #aeaeb2; 
+            text-align: center; 
+            margin-top: 15px; 
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="sys-title">SYSTEM MONITOR V2</div>
+            <div class="sys-title">SYSTEM MONITOR V2.1</div>
             <div style="font-size: 10px; font-weight: bold;"><span class="status-dot"></span>LOGGING...</div>
         </div>
 
@@ -66,18 +76,21 @@
 
         <div class="input-box">
             <div class="mode-selector">
-                <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">D (Drink)</button>
-                <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">F (Food)</button>
+                <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">D (Drink Mode)</button>
+                <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">F (Food Mode)</button>
             </div>
             <div class="num-grid">
                 <button class="num-btn" onclick="commit(3)">③</button>
+                <button class="num-btn" onclick="commit(4)">④</button>
                 <button class="num-btn" onclick="commit(5)">⑤</button>
+                <button class="num-btn" onclick="commit(6)">⑥</button>
                 <button class="num-btn" onclick="commit(7)">⑦</button>
+                <button class="num-btn" onclick="commit(8)">⑧</button>
+                <button class="num-btn" onclick="commit(9)">⑨</button>
                 <button class="num-btn" onclick="commit(10)">⑩</button>
-                <button class="num-btn" onclick="commit(12)">⑫</button>
-                <button class="num-btn" onclick="commit(15)">⑮</button>
+                <button class="num-btn" onclick="commit(11)">⑪</button>
             </div>
-            <div id="log-msg" class="log-msg">READY :: WAITING FOR INPUT</div>
+            <div id="log-msg" class="log-msg">STATUS: READY<br>WAITING FOR SYSTEM INPUT...</div>
         </div>
 
         <button onclick="resetLogs()" style="margin-top:20px; width:100%; background:none; border:none; color:#aeaeb2; font-size:10px; text-decoration:underline;">DATA PURGE (RESET)</button>
@@ -109,16 +122,18 @@
             document.getElementById('total-val').innerText = (total / 1000).toFixed(1);
             
             const msg = document.getElementById('log-msg');
-            msg.innerText = `LAST COMMIT: ${currentMode}+${lastVal}00 SUCCESS`;
+            msg.innerHTML = `LAST COMMIT: ${currentMode}+${lastVal}00 SUCCESS<br>LOGGING TO CLOUD DATABASE...`;
+            
+            // ログが流れるような色変化の演出
             msg.style.color = currentMode === 'D' ? '#FF9500' : '#34C759';
-            setTimeout(() => { msg.style.color = '#8e8e93'; }, 1000);
+            setTimeout(() => { msg.style.color = '#aeaeb2'; }, 1500);
         }
 
         function resetLogs() {
             if(confirm("全てのログを消去しますか？")) {
                 dCount = 0; fCount = 0; total = 0;
                 updateDisplay(0);
-                document.getElementById('log-msg').innerText = "SYSTEM REBOOTED";
+                document.getElementById('log-msg').innerHTML = "SYSTEM REBOOTED<br>ALL LOGS PURGED";
             }
         }
     </script>
