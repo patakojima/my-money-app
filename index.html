@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>入出金管理</title>
+<style>
+/* 全体の箱の計算を直感的にする（はみ出し防止） */
+* { box-sizing: border-box; }
+
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Meiryo", "Noto Sans JP", sans-serif; 
+  padding: 16px; 
+  background: #f0f2f5; 
+  margin: 0;
+  color: #333;
+}
+
+h2 { text-align: center; margin: 20px 0; font-size: 1.2rem; }
+
+.card { 
+  background: white; 
+  padding: 15px; 
+  border-radius: 12px; 
+  margin-bottom: 15px; 
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* 入力欄のスタイル：iPhoneでタップしやすく、はみ出さない設定 */
+input, select, button {
+  width: 100%; 
+  padding: 12px; 
+  margin: 8px 0; 
+  font-size: 16px; /* 16px以上にすることでiPhoneの自動ズームを防止 */
+  border-radius: 8px; 
+  border: 1px solid #ddd;
+  -webkit-appearance: none; /* iOS独自のスタイルをリセット */
+}
+
+button { 
+  background: #007aff; 
+  color: white; 
+  border: none; 
+  font-weight: bold;
+  margin-top: 12px;
+}
+
+button:active { background: #0056b3; }
+
+/* 収支の色分け */
+.income { color: #28a745; font-weight: bold; }
+.expense { color: #dc3545; font-weight: bold; }
+
+.item { 
+  padding: 12px 5px; 
+  border-bottom: 1px solid #eee; 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.total-box { text-align: center; }
+.total-label { font-size: 14px; color: #666; }
+.total-amount { font-size: 22px; font-weight: bold; margin: 4px 0; }
+
+.budget-info {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  font-size: 13px;
+}
+.budget-val { display: block; font-size: 16px; font-weight: bold; margin-top: 4px; }
+
+#alert { text-align: center; font-weight: bold; font-size: 14px; margin-top: 10px; }
+
+</style>
+</head>
+<body>
+
+<h2>入出金管理</h2>
+
+<div class="card">
+  <input type="date" id="date">
+  <input type="number" id="amount" placeholder="金額" inputmode="numeric">
+  <select id="type">
+    <option value="expense">支出</option>
+    <option value="income">収入</option>
+  </select>
+  <input type="text" id="category" placeholder="カテゴリ（食費など）">
+  <input type="text" id="memo" placeholder="メモ">
+  <button onclick="addData()">追加</button>
+</div>
+
+<div class="card total-box">
+  <div class="total-label">現在の残高</div>
+  <div class="total-amount" id="total">0円</div>
+  <div id="alert"></div>
+</div>
+
+<div class="card budget-info">
+  <div>
+    今日の予算
+    <span class="budget-val" id="todayBudget">0円</span>
+  </div>
+  <div style="border-left: 1px solid #eee;"></div>
+  <div>
+    今週あと使える
+    <span class="budget-val" id="weekRemaining">0円</span>
+  </div>
+</div>
+
+<div class="card" id="list"></div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("moneyData")) || [];
+
+// 起動時に今日の日付をセット
+window.onload = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  document.getElementById("date").value = `${y}-${m}-${d}`;
+  render();
+};
+
+function save() {
+  localStorage.setItem("moneyData", JSON.stringify(data));
+}
+
+function addData() {
+  const amountEl = document.getElementById("amount");
+  const dateEl = document.getElementById("date");
+  if (!amountEl.value) return alert("金額を入力してください");
+
+  const item = {
+    date: dateEl.value,
+    amount: Number(amountEl.value),
+    type: document.getElementById("type").value,
+    category: document.getElementById("category").value,
+    memo: document.getElementById("memo").value
+  };
+
+  data.push(item);
+  save();
+  render();
+
+  // 入力欄をクリア（日付以外）
+  amountEl.value = "";
+  document.getElementById("memo").value = "";
+  document.getElementById("category").value = "";
+}
+
+function render() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let weekExpense = 0;
+
+  // 今週の判定（月曜始まり）
+  const today = new Date();
+  const dayOfWeek = today.getDay(); 
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  // データの並び替えと集計
+  data
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .forEach(d => {
+      const dDate = new Date(d.date);
+      const div = document.createElement("div");
+      div.className = "item " + d.type;
+      
+      const sign = d.type === 'expense' ? '-' : '+';
+      div.innerHTML = `
+        <div>
+          <small style="color:#999; display:block;">${d.date}</small>
+          ${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small>
+        </div>
+        <div>${sign}${d.amount.toLocaleString()}円</div>
+      `;
+      list.appendChild(div);
+
+      if (d.type === "income") totalIncome += d.amount;
+      if (d.type === "expense") {
+        totalExpense += d.amount;
+        // 今週の支出をカウント
+        if (dDate >= startOfWeek && dDate <= endOfWeek) {
+          weekExpense += d.amount;
+        }
+      }
+    });
+
+  const total = totalIncome - totalExpense;
+  document.getElementById("total").innerText = total.toLocaleString() + "円";
+
+  // --- 予算の計算 ---
+  // 今月の残り日数
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); 
+  const remainingDaysInMonth = Math.max(1, lastDay.getDate() - today.getDate() + 1);
+  
+  // 今日の予算 = 残高 / 月末までの日数
+  const todayBudget = Math.floor(total / remainingDaysInMonth);
+  
+  // 週の予算 = 今日の予算 × 7日分
+  const weekBudget = todayBudget * 7;
+  
+  // 今週あと使える = 週の予算 - 今週の支出
+  const weekRemaining = weekBudget - weekExpense;
+
+  document.getElementById("todayBudget").innerText = (todayBudget > 0 ? todayBudget.toLocaleString() : 0) + "円";
+  document.getElementById("weekRemaining").innerText = weekRemaining.toLocaleString() + "円";
+
+  // アラートメッセージ
+  const alertEl = document.getElementById("alert");
+  if (total < 0) {
+    alertEl.innerText = "⚠️ 残高がマイナスです";
+    alertEl.style.color = "#dc3545";
+  } else if (weekRemaining < 0) {
+    alertEl.innerText = "⚠️ 今週の予算を超えています";
+    alertEl.style.color = "#dc3545";
+  } else {
+    alertEl.innerText = "✅ 順調なペースです";
+    alertEl.style.color = "#28a745";
+  }
+}
+</script>
+
+</body>
+</html>
