@@ -3,85 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Management Tool</title>
+    <title>Management Dashboard</title>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: #e0e0e0; margin: 0; padding: 20px; }
-        .container { max-width: 400px; margin: 0 auto; }
-        .header { border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-        .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .card { background: #262626; padding: 15px; border-radius: 8px; border: 1px solid #333; }
-        .label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .value { font-size: 20px; font-weight: bold; margin-top: 5px; }
-        
-        /* 秘密の入力ボタン */
-        .btn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-        button { 
-            background: #333; color: white; border: none; padding: 15px 0; 
-            border-radius: 5px; font-size: 14px; font-weight: bold;
-            active { background: #444; }
+        :root {
+            --primary: #007AFF; /* iOS Blue */
+            --drink: #FF9500;   /* Orange */
+            --food: #34C759;    /* Green */
+            --bg: #F2F2F7;
+            --card: #FFFFFF;
         }
-        .btn-d { border-bottom: 3px solid #3498db; } /* Drink */
-        .btn-f { border-bottom: 3px solid #2ecc71; } /* Food */
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #1c1c1e; margin: 0; padding: 20px; }
+        .container { max-width: 400px; margin: 0 auto; }
         
-        .reset-btn { margin-top: 30px; background: none; color: #555; font-size: 10px; width: 100%; border: 1px solid #333; }
+        /* ヘッダー */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .sys-title { font-weight: 800; font-size: 12px; color: var(--primary); letter-spacing: 1px; }
+        .status-dot { width: 8px; height: 8px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+
+        /* メイン数値 */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .label { font-size: 10px; color: #8e8e93; font-weight: bold; margin-bottom: 4px; }
+        .value { font-size: 24px; font-weight: 800; color: #1c1c1e; }
+        .unit { font-size: 12px; color: #8e8e93; margin-left: 4px; }
+
+        /* 入力エリア */
+        .input-box { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .mode-btn { border: 2px solid #e5e5ea; background: none; padding: 12px; border-radius: 10px; font-weight: bold; font-size: 16px; color: #8e8e93; }
+        .mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
+        .mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
+
+        .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .num-btn { background: #f2f2f7; border: none; padding: 18px; border-radius: 10px; font-size: 18px; font-weight: bold; color: #1c1c1e; transition: 0.1s; }
+        .num-btn:active { background: #e5e5ea; transform: scale(0.95); }
+
+        .log-msg { font-size: 10px; color: #8e8e93; text-align: center; margin-top: 15px; font-family: monospace; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="label">System Operation Status</div>
-            <div style="font-size: 12px; color: #2ecc71;">● Online / Secure Mode</div>
+            <div class="sys-title">SYSTEM MONITOR V2</div>
+            <div style="font-size: 10px; font-weight: bold;"><span class="status-dot"></span>LOGGING...</div>
         </div>
 
-        <div class="status-grid">
+        <div class="dashboard">
             <div class="card">
-                <div class="label">ALC Log (D)</div>
-                <div id="d-count" class="value">00</div>
+                <div class="label">DRINK (D)</div>
+                <div id="d-count" class="value">0</div><span class="unit">orders</span>
             </div>
             <div class="card">
-                <div class="label">Food Log (F)</div>
-                <div id="f-count" class="value">00</div>
+                <div class="label">FOOD (F)</div>
+                <div id="f-count" class="value">0</div><span class="unit">orders</span>
             </div>
             <div class="card" style="grid-column: span 2;">
-                <div class="label">Current Expense (Unit)</div>
-                <div id="total-unit" class="value">0.0</div>
+                <div class="label">TOTAL BUDGET SCALE</div>
+                <div id="total-val" class="value">0.0</div><span class="unit">k-units</span>
             </div>
         </div>
 
-        <div class="label" style="margin-bottom: 10px;">Input Terminal</div>
-        <div class="btn-grid">
-            <button class="btn-d" onclick="add('D', 3)">D+③</button>
-            <button class="btn-d" onclick="add('D', 5)">D+⑤</button>
-            <button class="btn-d" onclick="add('D', 7)">D+⑦</button>
-            <button class="btn-f" onclick="add('F', 5)">F+⑤</button>
-            <button class="btn-f" onclick="add('F', 10)">F+⑩</button>
-            <button class="btn-f" onclick="add('F', 15)">F+⑮</button>
+        <div class="input-box">
+            <div class="mode-selector">
+                <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">D (Drink)</button>
+                <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">F (Food)</button>
+            </div>
+            <div class="num-grid">
+                <button class="num-btn" onclick="commit(3)">③</button>
+                <button class="num-btn" onclick="commit(5)">⑤</button>
+                <button class="num-btn" onclick="commit(7)">⑦</button>
+                <button class="num-btn" onclick="commit(10)">⑩</button>
+                <button class="num-btn" onclick="commit(12)">⑫</button>
+                <button class="num-btn" onclick="commit(15)">⑮</button>
+            </div>
+            <div id="log-msg" class="log-msg">READY :: WAITING FOR INPUT</div>
         </div>
 
-        <button class="reset-btn" onclick="resetLogs()">SYSTEM RESET</button>
+        <button onclick="resetLogs()" style="margin-top:20px; width:100%; background:none; border:none; color:#aeaeb2; font-size:10px; text-decoration:underline;">DATA PURGE (RESET)</button>
     </div>
 
     <script>
+        let currentMode = 'D';
         let dCount = 0;
         let fCount = 0;
         let total = 0;
 
-        function add(type, val) {
-            if(type === 'D') dCount++;
-            if(type === 'F') fCount++;
-            total += (val * 100);
-            update();
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn-mode-d').className = mode === 'D' ? 'mode-btn active-d' : 'mode-btn';
+            document.getElementById('btn-mode-f').className = mode === 'F' ? 'mode-btn active-f' : 'mode-btn';
         }
 
-        function update() {
-            document.getElementById('d-count').innerText = dCount.toString().padStart(2, '0');
-            document.getElementById('f-count').innerText = fCount.toString().padStart(2, '0');
-            document.getElementById('total-unit').innerText = (total / 1000).toFixed(1) + "k";
+        function commit(val) {
+            if(currentMode === 'D') dCount++;
+            else fCount++;
+            
+            total += (val * 100);
+            updateDisplay(val);
+        }
+
+        function updateDisplay(lastVal) {
+            document.getElementById('d-count').innerText = dCount;
+            document.getElementById('f-count').innerText = fCount;
+            document.getElementById('total-val').innerText = (total / 1000).toFixed(1);
+            
+            const msg = document.getElementById('log-msg');
+            msg.innerText = `LAST COMMIT: ${currentMode}+${lastVal}00 SUCCESS`;
+            msg.style.color = currentMode === 'D' ? '#FF9500' : '#34C759';
+            setTimeout(() => { msg.style.color = '#8e8e93'; }, 1000);
         }
 
         function resetLogs() {
-            if(confirm("ログをクリアしますか？")) {
-                dCount = 0; fCount = 0; total = 0; update();
+            if(confirm("全てのログを消去しますか？")) {
+                dCount = 0; fCount = 0; total = 0;
+                updateDisplay(0);
+                document.getElementById('log-msg').innerText = "SYSTEM REBOOTED";
             }
         }
     </script>
