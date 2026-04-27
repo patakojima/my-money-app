@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v3.2</title>
+<title>Integrated Ops Terminal v3.3</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -20,11 +20,10 @@ body {
   margin: 0;
   color: #333;
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
 }
 
-/* ヘッダー：監視システム風 */
+/* ヘッダー */
 .header { padding: 20px 20px 10px; display: flex; justify-content: space-between; align-items: center; }
 .sys-title { font-weight: 800; font-size: 11px; color: var(--primary); letter-spacing: 2px; }
 .status-dot { width: 7px; height: 7px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1.2s infinite; }
@@ -38,7 +37,7 @@ body {
 /* 共通カード */
 .card { background: white; padding: 15px; border-radius: 14px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.05); }
 
-/* --- 家計簿用（実用モード）スタイル --- */
+/* --- 家計簿モードスタイル --- */
 h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 800; }
 input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
 .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; margin-top: 10px; }
@@ -50,7 +49,8 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
 .budget-info { display: flex; justify-content: space-around; text-align: center; font-size: 13px; }
 .budget-val { display: block; font-size: 16px; font-weight: 800; margin-top: 4px; }
 
-/* --- 宴会用（モックモード）スタイル --- */
+/* --- 宴会モード（モック）スタイル --- */
+.mock-dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
 .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
 .mode-btn { 
     border: 2px solid #efeff4; background: #fbfbfd; 
@@ -64,14 +64,11 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
 .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; }
 .num-btn:active { transform: scale(0.92); background: #e5e5ea; }
-.log-msg { 
-    font-size: 9px; font-weight: 200; color: #aeaeb2; text-align: center; margin-top: 15px; 
-    font-family: "Courier New", monospace; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.5; min-height: 27px;
-}
+.log-msg { font-size: 9px; font-weight: 200; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: "Courier New", monospace; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.5; min-height: 27px; }
 
 /* タブバー */
 .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #d1d1d6; padding: 10px 0 34px; }
-.tab-item { flex: 1; text-align: center; color: #8e8e93; border: none; background: none; font-size: 10px; font-weight: bold; letter-spacing: 1px; }
+.tab-item { flex: 1; text-align: center; color: #8e8e93; border: none; background: none; font-size: 10px; font-weight: bold; }
 .tab-item.active { color: var(--primary); }
 </style>
 </head>
@@ -113,24 +110,25 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
   </div>
 
   <div id="page-terminal" class="page">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+    <div class="mock-dashboard">
         <div class="card">
-            <div style="font-size:9px; color:#8e8e93; font-weight:bold; letter-spacing:1px;">UNIT_D (DRINK)</div>
-            <div id="mock-d-count" style="font-size:26px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D (DRINK)</div>
+            <div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
         </div>
         <div class="card">
-            <div style="font-size:9px; color:#8e8e93; font-weight:bold; letter-spacing:1px;">UNIT_F (FOOD)</div>
-            <div id="mock-f-count" style="font-size:26px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F (FOOD)</div>
+            <div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
         </div>
     </div>
+    <div class="card" style="margin-top:-5px;">
+        <div style="font-size:9px; color:#8e8e93; font-weight:bold; letter-spacing:1px; margin-bottom:5px;">SESSION_EXPENDITURE_SCALE</div>
+        <div id="mock-total-val" style="font-size:32px; font-weight:800; color:#1c1c1e;">0.0</div><span style="font-size:12px; color:#aeaeb2; font-weight:bold; margin-left:4px;">k-units</span>
+    </div>
+    
     <div class="card" style="padding: 20px;">
         <div class="mode-selector">
-            <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')">
-                <b>D</b><span>DRINK_MODE</span>
-            </button>
-            <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')">
-                <b>F</b><span>FOOD_MODE</span>
-            </button>
+            <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')"><b>D</b><span>DRINK_MODE</span></button>
+            <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')"><b>F</b><span>FOOD_MODE</span></button>
         </div>
         <div class="num-grid">
             <button class="num-btn" onclick="mockCommit(3)">③</button>
@@ -163,38 +161,26 @@ function switchPage(pageId, el) {
     document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V2.3';
 }
 
-// --- メイン：家計簿ロジック ---
+// --- メイン：家計簿ロジック (救出版) ---
 let data = JSON.parse(localStorage.getItem("moneyData")) || [];
-
 window.onload = () => {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  document.getElementById("date").value = `${y}-${m}-${d}`;
+  document.getElementById("date").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   render();
 };
-
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-
 function addData() {
   const amountEl = document.getElementById("amount");
-  const dateEl = document.getElementById("date");
   if (!amountEl.value) return alert("金額を入力してください");
-  const item = {
-    date: dateEl.value, amount: Number(amountEl.value),
-    type: document.getElementById("type").value,
-    category: document.getElementById("category").value,
-    memo: document.getElementById("memo").value
-  };
-  data.push(item);
+  data.push({
+    date: document.getElementById("date").value, amount: Number(amountEl.value),
+    type: document.getElementById("type").value, category: document.getElementById("category").value, memo: document.getElementById("memo").value
+  });
   save(); render();
   amountEl.value = ""; document.getElementById("memo").value = ""; document.getElementById("category").value = "";
 }
-
 function render() {
-  const list = document.getElementById("list");
-  list.innerHTML = "";
+  const list = document.getElementById("list"); list.innerHTML = "";
   let totalIncome = 0, totalExpense = 0, weekExpense = 0;
   const today = new Date();
   const dayOfWeek = today.getDay(); 
@@ -209,8 +195,7 @@ function render() {
       const dDate = new Date(d.date);
       const div = document.createElement("div");
       div.className = "item " + d.type;
-      const sign = d.type === 'expense' ? '-' : '+';
-      div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${sign}${d.amount.toLocaleString()}円</div>`;
+      div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`;
       list.appendChild(div);
       if (d.type === "income") totalIncome += d.amount;
       if (d.type === "expense") {
@@ -218,26 +203,21 @@ function render() {
         if (dDate >= startOfWeek && dDate <= endOfWeek) weekExpense += d.amount;
       }
   });
-
   const total = totalIncome - totalExpense;
   document.getElementById("total").innerText = total.toLocaleString() + "円";
-  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); 
-  const remainingDaysInMonth = Math.max(1, lastDay.getDate() - today.getDate() + 1);
-  const todayBudget = Math.floor(total / remainingDaysInMonth);
-  const weekBudget = todayBudget * 7;
-  const weekRemaining = weekBudget - weekExpense;
-
-  document.getElementById("todayBudget").innerText = (todayBudget > 0 ? todayBudget.toLocaleString() : 0) + "円";
-  document.getElementById("weekRemaining").innerText = weekRemaining.toLocaleString() + "円";
-
+  const rDays = Math.max(1, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1);
+  const tBudget = Math.floor(total / rDays);
+  const wRemaining = (tBudget * 7) - weekExpense;
+  document.getElementById("todayBudget").innerText = (tBudget > 0 ? tBudget.toLocaleString() : 0) + "円";
+  document.getElementById("weekRemaining").innerText = wRemaining.toLocaleString() + "円";
   const alertEl = document.getElementById("alert");
   if (total < 0) { alertEl.innerText = "⚠️ 残高がマイナスです"; alertEl.style.color = "#dc3545"; }
-  else if (weekRemaining < 0) { alertEl.innerText = "⚠️ 今週の予算を超えています"; alertEl.style.color = "#dc3545"; }
+  else if (wRemaining < 0) { alertEl.innerText = "⚠️ 今週の予算を超えています"; alertEl.style.color = "#dc3545"; }
   else { alertEl.innerText = "✅ 順調なペースです"; alertEl.style.color = "#28a745"; }
 }
 
-// --- 宴会モック：ロジック ---
-let mMode = 'D', mDCount = 0, mFCount = 0;
+// --- 宴会モック：ロジック (完全復活版) ---
+let mMode = 'D', mDCount = 0, mFCount = 0, mTotal = 0;
 function setMode(mode) {
     mMode = mode;
     document.getElementById('btn-mode-d').className = mode === 'D' ? 'mode-btn active-d' : 'mode-btn';
@@ -245,14 +225,17 @@ function setMode(mode) {
 }
 function mockCommit(val) {
     if(mMode === 'D') mDCount++; else mFCount++;
+    mTotal += (val * 100);
     document.getElementById('mock-d-count').innerText = mDCount;
     document.getElementById('mock-f-count').innerText = mFCount;
+    document.getElementById('mock-total-val').innerText = (mTotal / 1000).toFixed(1);
+    
     const msg = document.getElementById('log-msg');
-    msg.innerHTML = `ENTRY_SUCCESS: ${mMode}+${val}00<br>ENCRYPTING & UPLOADING...`;
+    msg.innerHTML = `ENTRY_SUCCESS: ${mMode}+${val}00<br>LOGGING TO SYSTEM...`;
     msg.style.color = mMode === 'D' ? '#FF9500' : '#34C759';
     setTimeout(() => { 
         msg.style.color = '#aeaeb2'; 
-        msg.innerHTML = `SYSTEM: STANDBY<br>TERMINAL_READY`; 
+        msg.innerHTML = "SYSTEM: STANDBY<br>TERMINAL_READY"; 
     }, 1500);
 }
 </script>
