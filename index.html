@@ -1,169 +1,254 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Integrated Management System</title>
-    <style>
-        :root {
-            --primary: #007AFF;
-            --drink: #FF9500;
-            --food: #34C759;
-            --bg: #F2F2F7;
-            --card: #FFFFFF;
-            --accent: #5856D6;
-        }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #1c1c1e; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; }
-        
-        /* 共通ヘッダー */
-        .header { padding: 20px 20px 10px; display: flex; justify-content: space-between; align-items: center; }
-        .sys-title { font-weight: 800; font-size: 11px; color: var(--primary); letter-spacing: 2px; }
-        .status-dot { width: 7px; height: 7px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1.2s infinite; }
-        @keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Integrated Ops Terminal</title>
+<style>
+/* 共通設定 */
+* { box-sizing: border-box; }
+:root {
+  --primary: #007aff;
+  --drink: #FF9500;
+  --food: #34C759;
+  --bg: #f0f2f5;
+  --card: #ffffff;
+}
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+  background: var(--bg); 
+  margin: 0;
+  color: #333;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-        /* コンテンツエリア */
-        .content { flex: 1; overflow-y: auto; padding: 0 20px 100px; }
-        .page { display: none; }
-        .page.active { display: block; }
+/* ヘッダー */
+.header { padding: 20px 20px 10px; display: flex; justify-content: space-between; align-items: center; }
+.sys-title { font-weight: 800; font-size: 11px; color: var(--primary); letter-spacing: 2px; }
+.status-dot { width: 7px; height: 7px; background: #34C759; border-radius: 50%; display: inline-block; margin-right: 5px; animation: blink 1.2s infinite; }
+@keyframes blink { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
 
-        /* カードデザイン */
-        .card { background: var(--card); padding: 18px; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); margin-bottom: 15px; border: 1px solid rgba(0,0,0,0.05); }
-        .label { font-size: 9px; color: #8e8e93; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase; }
-        .value { font-size: 26px; font-weight: 800; color: #1c1c1e; }
-        .unit { font-size: 10px; color: #aeaeb2; margin-left: 4px; }
+/* コンテンツエリア */
+.content { flex: 1; overflow-y: auto; padding: 0 16px 100px; }
+.page { display: none; }
+.page.active { display: block; }
 
-        /* メイン画面（家計簿）専用 */
-        .balance-card { background: linear-gradient(135deg, #007AFF, #5856D6); color: white; }
-        .balance-card .label { color: rgba(255,255,255,0.7); }
-        .balance-card .value { color: white; }
-        .list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f2f2f7; font-size: 14px; }
+/* 共通カード */
+.card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 
-        /* 宴会モード専用 */
-        .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
-        .mode-btn { 
-            border: 2px solid #efeff4; background: #fbfbfd; padding: 20px 0; border-radius: 15px; 
-            color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .mode-btn b { font-size: 24px; margin-bottom: 2px; }
-        .mode-btn span { font-size: 8px; font-weight: 300; font-family: monospace; }
-        .mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
-        .mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
-        .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; }
-        .log-msg { font-size: 9px; font-weight: 200; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: monospace; }
+/* --- 以前の家計簿用スタイル --- */
+h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; }
+input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
+.main-btn { background: #007aff; color: white; border: none; font-weight: bold; }
+.income { color: #28a745; font-weight: bold; }
+.expense { color: #dc3545; font-weight: bold; }
+.item { padding: 12px 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.total-box { text-align: center; }
+.total-amount { font-size: 22px; font-weight: bold; margin: 4px 0; }
+.budget-info { display: flex; justify-content: space-around; text-align: center; font-size: 13px; }
+.budget-val { display: block; font-size: 16px; font-weight: bold; margin-top: 4px; }
 
-        /* タブバー */
-        .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #d1d1d6; padding: 10px 0 30px; }
-        .tab-item { flex: 1; text-align: center; color: #8e8e93; border: none; background: none; font-size: 10px; font-weight: bold; }
-        .tab-item.active { color: var(--primary); }
-        .tab-icon { font-size: 20px; display: block; margin-bottom: 2px; }
-    </style>
+/* --- 宴会モック用スタイル --- */
+.mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+.mode-btn { border: 2px solid #efeff4; background: #fbfbfd; padding: 22px 0; border-radius: 15px; color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.mode-btn b { font-size: 22px; margin-bottom: 2px; }
+.mode-btn span { font-size: 8px; font-weight: 300; font-family: monospace; }
+.mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
+.mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
+.num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; }
+.log-msg { font-size: 9px; font-weight: 200; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: monospace; }
+
+/* タブバー */
+.tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #d1d1d6; padding: 10px 0 34px; }
+.tab-item { flex: 1; text-align: center; color: #8e8e93; border: none; background: none; font-size: 10px; font-weight: bold; }
+.tab-item.active { color: var(--primary); }
+</style>
 </head>
 <body>
-    <div class="header">
-        <div class="sys-title" id="display-title">MAIN_DASHBOARD</div>
-        <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>LIVE</div>
+
+<div class="header">
+    <div class="sys-title" id="display-title">MAIN_APP_V1.0</div>
+    <div><span class="status-dot"></span><small style="font-size:9px; font-weight:bold; color:#8e8e93;">SECURE_MODE</small></div>
+</div>
+
+<div class="content">
+  <div id="page-main" class="page active">
+    <h2>入出金管理</h2>
+    <div class="card">
+      <input type="date" id="date">
+      <input type="number" id="amount" placeholder="金額" inputmode="numeric">
+      <select id="type">
+        <option value="expense">支出</option>
+        <option value="income">収入</option>
+      </select>
+      <input type="text" id="category" placeholder="カテゴリ（食費など）">
+      <input type="text" id="memo" placeholder="メモ">
+      <button class="main-btn" onclick="addData()">データ追加</button>
     </div>
 
-    <div class="content">
-        <div id="page-main" class="page active">
-            <div class="card balance-card">
-                <div class="label">Current Balance</div>
-                <div class="value">¥ 42,500</div>
-            </div>
-            <div class="card">
-                <div class="label">Days until Payday</div>
-                <div class="value">12<span class="unit">days</span></div>
-            </div>
-            <div class="label" style="margin: 20px 0 10px;">Recent Activities</div>
-            <div class="card">
-                <div class="list-item"><span>Lunch (Pasta)</span><span style="color:#ff3b30">-¥1,200</span></div>
-                <div class="list-item"><span>Transport</span><span style="color:#ff3b30">-¥440</span></div>
-                <div class="list-item"><span>Refund</span><span style="color:#34c759">+¥2,000</span></div>
-            </div>
-        </div>
-
-        <div id="page-terminal" class="page">
-            <div class="dashboard" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                <div class="card">
-                    <div class="label">UNIT_D</div>
-                    <div id="d-count" class="value">0</div><span class="unit">cts</span>
-                </div>
-                <div class="card">
-                    <div class="label">UNIT_F</div>
-                    <div id="f-count" class="value">0</div><span class="unit">cts</span>
-                </div>
-                <div class="card" style="grid-column: span 2;">
-                    <div class="label">SESSION_EXPENDITURE</div>
-                    <div id="total-val" class="value">0.0</div><span class="unit">k-units</span>
-                </div>
-            </div>
-            <div class="card" style="padding: 20px;">
-                <div class="mode-selector">
-                    <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')"><b>D</b><span>DRINK_MODE</span></button>
-                    <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')"><b>F</b><span>FOOD_MODE</span></button>
-                </div>
-                <div class="num-grid">
-                    <button class="num-btn" onclick="commit(3)">③</button><button class="num-btn" onclick="commit(4)">④</button><button class="num-btn" onclick="commit(5)">⑤</button>
-                    <button class="num-btn" onclick="commit(6)">⑥</button><button class="num-btn" onclick="commit(7)">⑦</button><button class="num-btn" onclick="commit(8)">⑧</button>
-                    <button class="num-btn" onclick="commit(9)">⑨</button><button class="num-btn" onclick="commit(10)">⑩</button><button class="num-btn" onclick="commit(11)">⑪</button>
-                </div>
-                <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
-            </div>
-        </div>
+    <div class="card total-box">
+      <div style="font-size:14px; color:#666;">現在の残高</div>
+      <div class="total-amount" id="total">0円</div>
+      <div id="alert" style="font-size:14px; font-weight:bold; margin-top:10px;"></div>
     </div>
 
-    <nav class="tab-bar">
-        <button class="tab-item active" onclick="switchPage('main', this)">
-            <span class="tab-icon">📊</span>MAIN
-        </button>
-        <button class="tab-item" onclick="switchPage('terminal', this)">
-            <span class="tab-icon">🛰️</span>TERMINAL
-        </button>
-    </nav>
+    <div class="card budget-info">
+      <div>今日の予算<span class="budget-val" id="todayBudget">0円</span></div>
+      <div style="border-left: 1px solid #eee;"></div>
+      <div>今週あと使える<span class="budget-val" id="weekRemaining">0円</span></div>
+    </div>
 
-    <script>
-        // ページ切り替え
-        function switchPage(pageId, el) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById('page-' + pageId).classList.add('active');
-            
-            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-            el.classList.add('active');
+    <div class="card" id="list"></div>
+  </div>
 
-            document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V3.0';
-        }
+  <div id="page-terminal" class="page">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <div class="card">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D (DRINK)</div>
+            <div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">杯</span>
+        </div>
+        <div class="card">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F (FOOD)</div>
+            <div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">品</span>
+        </div>
+    </div>
+    <div class="card" style="padding: 20px;">
+        <div class="mode-selector">
+            <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')"><b>D</b><span>DRINK_MODE</span></button>
+            <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')"><b>F</b><span>FOOD_MODE</span></button>
+        </div>
+        <div class="num-grid">
+            <button class="num-btn" onclick="mockCommit(3)">③</button>
+            <button class="num-btn" onclick="mockCommit(4)">④</button>
+            <button class="num-btn" onclick="mockCommit(5)">⑤</button>
+            <button class="num-btn" onclick="mockCommit(6)">⑥</button>
+            <button class="num-btn" onclick="mockCommit(7)">⑦</button>
+            <button class="num-btn" onclick="mockCommit(8)">⑧</button>
+            <button class="num-btn" onclick="mockCommit(9)">⑨</button>
+            <button class="num-btn" onclick="mockCommit(10)">⑩</button>
+            <button class="num-btn" onclick="mockCommit(11)">⑪</button>
+        </div>
+        <div id="log-msg" class="log-msg">STATUS: STANDBY<br>AWAITING INPUT...</div>
+    </div>
+  </div>
+</div>
 
-        // 宴会モードロジック
-        let currentMode = 'D';
-        let dCount = 0, fCount = 0, total = 0;
+<nav class="tab-bar">
+    <button class="tab-item active" onclick="switchPage('main', this)">📊 MAIN</button>
+    <button class="tab-item" onclick="switchPage('terminal', this)">🛰️ TERMINAL</button>
+</nav>
 
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('btn-mode-d').className = mode === 'D' ? 'mode-btn active-d' : 'mode-btn';
-            document.getElementById('btn-mode-f').className = mode === 'F' ? 'mode-btn active-f' : 'mode-btn';
-        }
+<script>
+// --- ページ切替ロジック ---
+function switchPage(pageId, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_APP_V1.0' : 'TERMINAL_OP_V2.3';
+}
 
-        function commit(val) {
-            if(currentMode === 'D') dCount++; else fCount++;
-            total += (val * 100);
-            updateDisplay(val);
-        }
+// --- 以前の家計簿ロジック (localStorage) ---
+let data = JSON.parse(localStorage.getItem("moneyData")) || [];
 
-        function updateDisplay(lastVal) {
-            document.getElementById('d-count').innerText = dCount;
-            document.getElementById('f-count').innerText = fCount;
-            document.getElementById('total-val').innerText = (total / 1000).toFixed(1);
-            const msg = document.getElementById('log-msg');
-            if(lastVal === 0) return;
-            msg.innerHTML = `ENTRY_SUCCESS: ${currentMode}+${lastVal}00<br>ENCRYPTING...`;
-            msg.style.color = currentMode === 'D' ? '#FF9500' : '#34C759';
-            setTimeout(() => { 
-                msg.style.color = '#aeaeb2'; 
-                msg.innerHTML = `SYSTEM: STANDBY<br>SESSION_TOTAL: ${(total / 1000).toFixed(1)}K`;
-            }, 1500);
-        }
-    </script>
+window.onload = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  document.getElementById("date").value = `${y}-${m}-${d}`;
+  render();
+};
+
+function save() {
+  localStorage.setItem("moneyData", JSON.stringify(data));
+}
+
+function addData() {
+  const amountEl = document.getElementById("amount");
+  const dateEl = document.getElementById("date");
+  if (!amountEl.value) return alert("金額を入力してください");
+
+  const item = {
+    date: dateEl.value,
+    amount: Number(amountEl.value),
+    type: document.getElementById("type").value,
+    category: document.getElementById("category").value,
+    memo: document.getElementById("memo").value
+  };
+
+  data.push(item);
+  save();
+  render();
+
+  amountEl.value = "";
+  document.getElementById("memo").value = "";
+  document.getElementById("category").value = "";
+}
+
+function render() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  let totalIncome = 0, totalExpense = 0, weekExpense = 0;
+  const today = new Date();
+  const dayOfWeek = today.getDay(); 
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  startOfWeek.setHours(0, 0, 0, 0);
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
+  data.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(d => {
+      const dDate = new Date(d.date);
+      const div = document.createElement("div");
+      div.className = "item " + d.type;
+      const sign = d.type === 'expense' ? '-' : '+';
+      div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${sign}${d.amount.toLocaleString()}円</div>`;
+      list.appendChild(div);
+      if (d.type === "income") totalIncome += d.amount;
+      if (d.type === "expense") {
+        totalExpense += d.amount;
+        if (dDate >= startOfWeek && dDate <= endOfWeek) weekExpense += d.amount;
+      }
+  });
+
+  const total = totalIncome - totalExpense;
+  document.getElementById("total").innerText = total.toLocaleString() + "円";
+  const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); 
+  const remainingDaysInMonth = Math.max(1, lastDay.getDate() - today.getDate() + 1);
+  const todayBudget = Math.floor(total / remainingDaysInMonth);
+  const weekBudget = todayBudget * 7;
+  const weekRemaining = weekBudget - weekExpense;
+
+  document.getElementById("todayBudget").innerText = (todayBudget > 0 ? todayBudget.toLocaleString() : 0) + "円";
+  document.getElementById("weekRemaining").innerText = weekRemaining.toLocaleString() + "円";
+
+  const alertEl = document.getElementById("alert");
+  if (total < 0) { alertEl.innerText = "⚠️ 残高がマイナスです"; alertEl.style.color = "#dc3545"; }
+  else if (weekRemaining < 0) { alertEl.innerText = "⚠️ 今週の予算を超えています"; alertEl.style.color = "#dc3545"; }
+  else { alertEl.innerText = "✅ 順調なペースです"; alertEl.style.color = "#28a745"; }
+}
+
+// --- 宴会モックロジック ---
+let mMode = 'D', mDCount = 0, mFCount = 0;
+function setMode(mode) {
+    mMode = mode;
+    document.getElementById('btn-mode-d').className = mode === 'D' ? 'mode-btn active-d' : 'mode-btn';
+    document.getElementById('btn-mode-f').className = mode === 'F' ? 'mode-btn active-f' : 'mode-btn';
+}
+function mockCommit(val) {
+    if(mMode === 'D') mDCount++; else mFCount++;
+    document.getElementById('mock-d-count').innerText = mDCount;
+    document.getElementById('mock-f-count').innerText = mFCount;
+    const msg = document.getElementById('log-msg');
+    msg.innerHTML = `ENTRY_SUCCESS: ${mMode}+${val}00<br>ENCRYPTING & UPLOADING...`;
+    msg.style.color = mMode === 'D' ? '#FF9500' : '#34C759';
+    setTimeout(() => { msg.style.color = '#aeaeb2'; msg.innerHTML = "SYSTEM: STANDBY<br>AWAITING INPUT..."; }, 1500);
+}
+</script>
 </body>
 </html>
-
