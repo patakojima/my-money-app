@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v4.0</title>
+<title>Integrated Ops Terminal v4.2</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -53,17 +53,28 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 .budget-val { display: block; font-size: 16px; font-weight: 800; margin-top: 4px; }
 
 /* --- ターミナル（ステルス）モードスタイル --- */
-.mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
-.mode-btn { 
-    border: 2px solid #efeff4; background: #fbfbfd; padding: 22px 0; border-radius: 15px; 
+.task-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.task-btn { 
+    border: 2px solid #efeff4; background: #fbfbfd; padding: 16px 0; border-radius: 12px; 
     color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.mode-btn b { font-size: 22px; margin-bottom: 2px; }
-.mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
-.mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
+.task-btn b { font-size: 16px; margin-bottom: 4px; }
+.task-btn span { font-size: 9px; font-weight: 300; font-family: monospace; letter-spacing: 0.5px; }
+.task-btn:active { opacity: 0.6; transform: scale(0.96); }
+/* Task A/B は D(Drink) 扱いなのでオレンジ系のハイライトを追加可能 */
+.task-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
+
 .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; }
-.log-msg { font-size: 9px; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: monospace; text-transform: uppercase; }
+.num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; }
+.num-btn:active { transform: scale(0.92); background: #e5e5ea; }
+
+/* Extra Cost 用 D/F切替ボタン */
+.extra-toggle { display: flex; gap: 10px; margin-bottom: 10px; }
+.ext-btn { flex: 1; border: 2px solid #efeff4; background: #fbfbfd; padding: 12px; border-radius: 10px; font-size: 18px; font-weight: 800; color: #8e8e93; text-align: center; }
+.ext-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
+.ext-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
+
+.log-msg { font-size: 9px; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: monospace; text-transform: uppercase; min-height: 27px; }
 
 /* タブバー */
 .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #d1d1d6; padding: 10px 0 34px; }
@@ -75,7 +86,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 
 <div class="header">
     <div class="sys-title" id="display-title">MAIN_DASHBOARD</div>
-    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>SYSTEM_LIVE</div>
+    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>LIVE_LINK</div>
 </div>
 
 <div class="content">
@@ -106,14 +117,15 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
     </div>
 
     <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">PROJECT_PRESET_REGISTRY</div>
+      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">PROJECT_REGISTRY_MOD</div>
+      <input type="hidden" id="edit-store-id">
       <input type="text" id="store-name" placeholder="店名 / Project Name">
       <div style="display: flex; gap: 8px;">
-        <input type="number" id="price-a" placeholder="DrinkA 単価" inputmode="numeric">
-        <input type="number" id="price-b" placeholder="DrinkB 単価" inputmode="numeric">
+        <input type="number" id="price-a" placeholder="D単価 (Task A/B用)" inputmode="numeric">
+        <input type="number" id="price-b" placeholder="F単価 (予備)" inputmode="numeric">
       </div>
-      <button class="main-btn" style="background:#666;" onclick="saveStore()">プリセットを保存</button>
-      <div id="store-list-ui" style="margin-top:10px; font-size:12px; color:#666;"></div>
+      <button id="store-save-btn" class="main-btn" style="background:#666;" onclick="saveStore()">プリセットを保存</button>
+      <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
     </div>
 
     <div class="card" id="list"></div>
@@ -128,30 +140,58 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
     <div id="active-terminal-area" style="display:none;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
             <div class="card">
-                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">TASK_COUNT_A</div>
-                <div id="t-count-a" style="font-size:26px; font-weight:800;">0</div>
+                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D (DRINK)</div>
+                <div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
             </div>
             <div class="card">
-                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">TASK_COUNT_B</div>
-                <div id="t-count-b" style="font-size:26px; font-weight:800;">0</div>
+                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F (FOOD)</div>
+                <div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
             </div>
-        </div>
-        <div class="card" style="margin-top:-5px;">
-            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">BUDGET_PROGRESS</div>
-            <div id="t-total-val" style="font-size:32px; font-weight:800; color:#1c1c1e;">0</div><span style="font-size:12px; color:#aeaeb2; font-weight:bold;"> units</span>
         </div>
         
-        <div class="card">
-            <div class="mode-selector">
-                <button id="btn-t-a" class="mode-btn active-d" onclick="tCommit('A')"><b>Task A</b><span id="label-price-a">0 units</span></button>
-                <button id="btn-t-b" class="mode-btn" onclick="tCommit('B')"><b>Task B</b><span id="label-price-b">0 units</span></button>
+        <div class="card" style="margin-top:-5px; position:relative;">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">BUDGET_PROGRESS</div>
+            <div id="mock-total-val" style="font-size:32px; font-weight:800; color:#1c1c1e;">0</div><span style="font-size:12px; color:#aeaeb2; font-weight:bold;"> units</span>
+            <button onclick="undoLast()" style="position:absolute; right:15px; top:15px; background:#efeff4; border:none; padding:8px 12px; border-radius:8px; font-size:10px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
+        </div>
+        
+        <div class="card" style="padding: 20px;">
+            <div class="task-selector">
+                <button class="task-btn" onclick="commitTaskA()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;">
+                    <b>Task A</b><span id="label-price-a">0</span>
+                </button>
+                <button class="task-btn" onclick="commitTaskB()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;">
+                    <b>Task B</b><span id="label-price-b">0</span>
+                </button>
+                <button id="btn-task-f" class="task-btn" onclick="selectTaskF()">
+                    <b>Task F</b><span>MANUAL</span>
+                </button>
             </div>
-            <div style="margin-bottom:15px;">
-                <input type="number" id="extra-cost" placeholder="Extra Cost (直接入力)" inputmode="numeric" style="margin:0;">
-                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra</button>
+
+            <div class="num-grid">
+                <button class="num-btn" onclick="commitNum(3)">③</button>
+                <button class="num-btn" onclick="commitNum(4)">④</button>
+                <button class="num-btn" onclick="commitNum(5)">⑤</button>
+                <button class="num-btn" onclick="commitNum(6)">⑥</button>
+                <button class="num-btn" onclick="commitNum(7)">⑦</button>
+                <button class="num-btn" onclick="commitNum(8)">⑧</button>
+                <button class="num-btn" onclick="commitNum(9)">⑨</button>
+                <button class="num-btn" onclick="commitNum(10)">⑩</button>
+                <button class="num-btn" onclick="commitNum(11)">⑪</button>
             </div>
-            <button class="main-btn" style="background:#ff3b30; padding:18px;" onclick="showCheckout()">COMPLETE_PROJECT (会計)</button>
-            <div id="t-log" class="log-msg">READY_FOR_OPERATIONS</div>
+            
+            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+                <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">EXTRA_COST_ENTRY</div>
+                <div class="extra-toggle">
+                    <button id="ext-btn-d" class="ext-btn active-d" onclick="setExtraMode('D')">D</button>
+                    <button id="ext-btn-f" class="ext-btn" onclick="setExtraMode('F')">F</button>
+                </div>
+                <input type="number" id="extra-cost" placeholder="金額を直接入力" inputmode="numeric" style="margin:0;">
+                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra Cost</button>
+            </div>
+
+            <button class="main-btn" style="background:#ff3b30; padding:18px; margin-top:20px;" onclick="showCheckout()">COMPLETE_PROJECT (会計)</button>
+            <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
         </div>
     </div>
   </div>
@@ -160,9 +200,9 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 <div id="checkout-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:1000; padding:40px 20px;">
     <div class="card" style="margin-top:100px;">
         <h3 style="margin:0 0 10px;">Final Accounting</h3>
-        <p style="font-size:12px; color:#666;">最終的な正確な会計金額を入力してください。</p>
+        <p style="font-size:12px; color:#666;">実際の会計金額を入力してください。</p>
         <input type="number" id="final-amount" placeholder="最終金額" inputmode="numeric">
-        <button class="main-btn" onclick="finishProject()">確定して家計簿に反映</button>
+        <button class="main-btn" onclick="finishProject()">確定して記録</button>
         <button class="main-btn" style="background:#ccc;" onclick="closeCheckout()">キャンセル</button>
     </div>
 </div>
@@ -173,18 +213,22 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 </nav>
 
 <script>
-// --- 基本データ構造 ---
+// --- データ管理 ---
 let data = JSON.parse(localStorage.getItem("moneyData")) || [];
 let stores = JSON.parse(localStorage.getItem("storePresets")) || [];
 let activeStore = null;
-let currentCounts = { A: 0, B: 0, extra: 0 };
+
+// ターミナル用変数
+let mDCount = 0, mFCount = 0, mTotal = 0;
+let actionLog = []; // Undo用
+let currentExtraMode = 'D'; // Extra Cost用のD/F選択
 
 // --- 初期化 ---
 window.onload = () => {
-  const now = new Date();
-  document.getElementById("date").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  render();
-  updateStoreUI();
+    const now = new Date();
+    document.getElementById("date").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    render();
+    updateStoreUI();
 };
 
 // --- ページ切替 ---
@@ -193,60 +237,72 @@ function switchPage(pageId, el) {
     document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V4.0';
+    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V4.2';
     if(pageId === 'terminal') updateStoreSelect();
 }
 
-// --- 家計簿ロジック (既存維持) ---
+// --- 家計簿コア機能 ---
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
 function addData(customObj = null) {
-  const item = customObj || {
-    date: document.getElementById("date").value, 
-    amount: Number(document.getElementById("amount").value),
-    type: document.getElementById("type").value, 
-    category: document.getElementById("category").value, 
-    memo: document.getElementById("memo").value
-  };
-  if (!item.amount) return alert("金額を入力してください");
-  data.push(item);
-  save(); render();
-  if(!customObj) {
-      document.getElementById("amount").value = ""; 
-      document.getElementById("memo").value = ""; 
-      document.getElementById("category").value = "";
-  }
+    const item = customObj || {
+        date: document.getElementById("date").value, 
+        amount: Number(document.getElementById("amount").value),
+        type: document.getElementById("type").value, 
+        category: document.getElementById("category").value, 
+        memo: document.getElementById("memo").value
+    };
+    if (!item.amount) return alert("金額を入力してください");
+    data.push(item);
+    save(); render();
+    if(!customObj) {
+        document.getElementById("amount").value = ""; 
+        document.getElementById("memo").value = ""; 
+        document.getElementById("category").value = "";
+    }
 }
 
 function render() {
-  const list = document.getElementById("list"); list.innerHTML = "";
-  let totalIncome = 0, totalExpense = 0, weekExpense = 0;
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
-  startOfWeek.setHours(0,0,0,0);
+    const list = document.getElementById("list"); list.innerHTML = "";
+    let totalIncome = 0, totalExpense = 0, weekExpense = 0;
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+    startOfWeek.setHours(0,0,0,0);
 
-  data.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(d=>{
-      const div = document.createElement("div"); div.className = "item " + d.type;
-      div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`;
-      list.appendChild(div);
-      if(d.type==="income") totalIncome += d.amount;
-      else { totalExpense += d.amount; if(new Date(d.date)>=startOfWeek) weekExpense += d.amount; }
-  });
-  const total = totalIncome - totalExpense;
-  document.getElementById("total").innerText = total.toLocaleString() + "円";
-  const rDays = Math.max(1, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate() - today.getDate() + 1);
-  const tBudget = Math.floor(total / rDays);
-  document.getElementById("todayBudget").innerText = (tBudget > 0 ? tBudget.toLocaleString() : 0) + "円";
-  document.getElementById("weekRemaining").innerText = ((tBudget*7)-weekExpense).toLocaleString() + "円";
+    data.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(d=>{
+        const div = document.createElement("div"); div.className = "item " + d.type;
+        div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`;
+        list.appendChild(div);
+        if(d.type==="income") totalIncome += d.amount;
+        else { totalExpense += d.amount; if(new Date(d.date)>=startOfWeek) weekExpense += d.amount; }
+    });
+    const total = totalIncome - totalExpense;
+    document.getElementById("total").innerText = total.toLocaleString() + "円";
+    const rDays = Math.max(1, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate() - today.getDate() + 1);
+    const tBudget = Math.floor(total / rDays);
+    document.getElementById("todayBudget").innerText = (tBudget > 0 ? tBudget.toLocaleString() : 0) + "円";
+    document.getElementById("weekRemaining").innerText = ((tBudget*7)-weekExpense).toLocaleString() + "円";
 }
 
-// --- お店プリセット機能 ---
+// --- お店データ管理 (CRUD) ---
 function saveStore() {
+    const id = document.getElementById('edit-store-id').value;
     const name = document.getElementById('store-name').value;
     const a = Number(document.getElementById('price-a').value);
     const b = Number(document.getElementById('price-b').value);
+    
     if(!name) return alert("店名を入力してください");
-    stores.push({ id: Date.now(), name, a, b });
+
+    if(id) { 
+        const idx = stores.findIndex(s => s.id == id);
+        stores[idx] = { id: Number(id), name, a, b };
+        document.getElementById('edit-store-id').value = "";
+        document.getElementById('store-save-btn').innerText = "プリセットを保存";
+        document.getElementById('store-save-btn').style.background = "#666";
+    } else { 
+        stores.push({ id: Date.now(), name, a, b });
+    }
+
     localStorage.setItem("storePresets", JSON.stringify(stores));
     updateStoreUI();
     document.getElementById('store-name').value = "";
@@ -256,11 +312,31 @@ function saveStore() {
 
 function updateStoreUI() {
     const ui = document.getElementById('store-list-ui');
-    ui.innerHTML = stores.map(s => `<div>● ${s.name} (A:${s.a} / B:${s.b}) <span onclick="deleteStore(${s.id})" style="color:red; margin-left:10px;">×</span></div>`).join('');
+    ui.innerHTML = stores.map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;">
+            <div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div>
+            <div>
+                <button onclick="editStore(${s.id})" style="background:#007aff; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">編集</button>
+                <button onclick="deleteStore(${s.id})" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-left:4px;">削除</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function editStore(id) {
+    const s = stores.find(s => s.id == id);
+    document.getElementById('edit-store-id').value = s.id;
+    document.getElementById('store-name').value = s.name;
+    document.getElementById('price-a').value = s.a;
+    document.getElementById('price-b').value = s.b;
+    document.getElementById('store-save-btn').innerText = "データを更新";
+    document.getElementById('store-save-btn').style.background = "#28a745";
+    window.scrollTo(0,0);
 }
 
 function deleteStore(id) {
-    stores = stores.filter(s => s.id !== id);
+    if(!confirm("削除しますか？")) return;
+    stores = stores.filter(s => s.id != id);
     localStorage.setItem("storePresets", JSON.stringify(stores));
     updateStoreUI();
 }
@@ -278,39 +354,100 @@ function loadProject() {
         document.getElementById('active-terminal-area').style.display = 'block';
         document.getElementById('label-price-a').innerText = activeStore.a + " units";
         document.getElementById('label-price-b').innerText = activeStore.b + " units";
-        currentCounts = { A: 0, B: 0, extra: 0 };
+        
+        mDCount = 0; mFCount = 0; mTotal = 0; actionLog = [];
         updateTDisplay();
+        
+        // 初期状態としてTask Fをアクティブ(グリーン)にしておく
+        document.getElementById('btn-task-f').classList.add('active-f');
     }
 }
 
-function tCommit(type) {
-    currentCounts[type]++;
+// Task A (設定金額を即座に追加・Dカウント)
+function commitTaskA() {
+    if(!activeStore) return;
+    mDCount++;
+    mTotal += activeStore.a;
+    actionLog.push({ type: 'TASK_A', cost: activeStore.a, d: 1, f: 0 });
     updateTDisplay();
-    logT(`TASK_${type}_LOGGED`);
+    logT(`TASK_A_ADDED: ${activeStore.a}`);
 }
 
+// Task B (設定金額を即座に追加・Dカウント)
+function commitTaskB() {
+    if(!activeStore) return;
+    mDCount++;
+    mTotal += activeStore.b;
+    actionLog.push({ type: 'TASK_B', cost: activeStore.b, d: 1, f: 0 });
+    updateTDisplay();
+    logT(`TASK_B_ADDED: ${activeStore.b}`);
+}
+
+// Task F (押した感を出すためハイライト)
+function selectTaskF() {
+    document.getElementById('btn-task-f').classList.add('active-f');
+    logT('TASK_F_SELECTED: AWAITING NUM');
+}
+
+// Task F用の数字ボタン (Fカウント・300〜1100を追加)
+function commitNum(val) {
+    mFCount++;
+    const cost = val * 100;
+    mTotal += cost;
+    actionLog.push({ type: 'TASK_F_NUM', cost: cost, d: 0, f: 1 });
+    updateTDisplay();
+    logT(`TASK_F_ADDED: ${cost}`);
+    // 数字を押したらTask Fのハイライトを確実につける
+    document.getElementById('btn-task-f').classList.add('active-f');
+}
+
+// Extra Cost 用のD/F切替
+function setExtraMode(mode) {
+    currentExtraMode = mode;
+    document.getElementById('ext-btn-d').className = mode === 'D' ? 'ext-btn active-d' : 'ext-btn';
+    document.getElementById('ext-btn-f').className = mode === 'F' ? 'ext-btn active-f' : 'ext-btn';
+}
+
+// Extra Cost 追加処理
 function addExtra() {
     const val = Number(document.getElementById('extra-cost').value);
-    currentCounts.extra += val;
+    if(!val) return;
+    
+    mTotal += val;
+    // DかFか記録（金額のみ追加し、杯数/皿数のカウントは増やさない仕様）
+    actionLog.push({ type: `EXTRA_${currentExtraMode}`, cost: val, d: 0, f: 0 });
+    
     document.getElementById('extra-cost').value = "";
     updateTDisplay();
-    logT(`EXTRA_COST_ADDED`);
+    logT(`EXTRA_COST_${currentExtraMode}_ADDED: ${val}`);
+}
+
+// Undo (取り消し)
+function undoLast() {
+    const last = actionLog.pop();
+    if(!last) return;
+    
+    mDCount -= last.d;
+    mFCount -= last.f;
+    mTotal -= last.cost;
+    
+    updateTDisplay();
+    logT("UNDO_LAST_ACTION");
 }
 
 function updateTDisplay() {
-    document.getElementById('t-count-a').innerText = currentCounts.A;
-    document.getElementById('t-count-b').innerText = currentCounts.B;
-    const totalUnits = (currentCounts.A * activeStore.a) + (currentCounts.B * activeStore.b) + currentCounts.extra;
-    document.getElementById('t-total-val').innerText = totalUnits.toLocaleString();
+    document.getElementById('mock-d-count').innerText = mDCount;
+    document.getElementById('mock-f-count').innerText = mFCount;
+    document.getElementById('mock-total-val').innerText = mTotal.toLocaleString();
 }
 
 function logT(msg) {
-    const el = document.getElementById('t-log');
+    const el = document.getElementById('log-msg');
     el.innerHTML = `STATUS: ${msg}<br>SYSTEM_READY`;
-    setTimeout(()=> el.innerHTML = "SYSTEM: STANDBY<br>OPERATIONAL", 1500);
+    setTimeout(()=> el.innerHTML = "SYSTEM: STANDBY<br>AWAITING INPUT...", 1500);
 }
 
-// --- 会計連携 ---
+// --- 会計連携機能 ---
 function showCheckout() { document.getElementById('checkout-modal').style.display = 'block'; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display = 'none'; }
 
@@ -320,10 +457,9 @@ function finishProject() {
     
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const memoStr = `D:${mDCount} F:${mFCount} (Est:${mTotal})`;
     
-    const memoStr = `A:${currentCounts.A} B:${currentCounts.B} Ex:${currentCounts.extra}`;
-    
-    // 家計簿へデータ追加
+    // 家計簿に記録
     addData({
         date: dateStr,
         amount: finalAmount,
@@ -332,7 +468,7 @@ function finishProject() {
         memo: memoStr
     });
 
-    alert("プロジェクト完了。家計簿に計上しました。");
+    alert("会計完了。記録しました。");
     closeCheckout();
     document.getElementById('active-terminal-area').style.display = 'none';
     document.getElementById('active-project-id').value = "";
@@ -341,3 +477,4 @@ function finishProject() {
 </script>
 </body>
 </html>
+
