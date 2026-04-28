@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v3.3</title>
+<title>Integrated Ops Terminal v4.0</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -37,10 +37,13 @@ body {
 /* 共通カード */
 .card { background: white; padding: 15px; border-radius: 14px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.05); }
 
-/* --- 家計簿モードスタイル --- */
-h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 800; }
+/* --- フォーム部品 --- */
 input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
 .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; margin-top: 10px; }
+.main-btn:active { opacity: 0.7; }
+
+/* --- 家計簿モードスタイル --- */
+h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 800; }
 .income { color: #28a745; font-weight: bold; }
 .expense { color: #dc3545; font-weight: bold; }
 .item { padding: 12px 5px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
@@ -49,22 +52,18 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
 .budget-info { display: flex; justify-content: space-around; text-align: center; font-size: 13px; }
 .budget-val { display: block; font-size: 16px; font-weight: 800; margin-top: 4px; }
 
-/* --- 宴会モード（モック）スタイル --- */
-.mock-dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+/* --- ターミナル（ステルス）モードスタイル --- */
 .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
 .mode-btn { 
-    border: 2px solid #efeff4; background: #fbfbfd; 
-    padding: 22px 0; border-radius: 15px; 
+    border: 2px solid #efeff4; background: #fbfbfd; padding: 22px 0; border-radius: 15px; 
     color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.mode-btn b { font-size: 24px; margin-bottom: 2px; font-weight: 800; }
-.mode-btn span { font-size: 8px; font-weight: 300; font-family: monospace; letter-spacing: 1px; }
-.mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; box-shadow: 0 4px 12px rgba(255,149,0,0.1); }
-.mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; box-shadow: 0 4px 12px rgba(52,199,89,0.1); }
+.mode-btn b { font-size: 22px; margin-bottom: 2px; }
+.mode-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
+.mode-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
 .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; }
-.num-btn:active { transform: scale(0.92); background: #e5e5ea; }
-.log-msg { font-size: 9px; font-weight: 200; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: "Courier New", monospace; letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.5; min-height: 27px; }
+.log-msg { font-size: 9px; color: #aeaeb2; text-align: center; margin-top: 15px; font-family: monospace; text-transform: uppercase; }
 
 /* タブバー */
 .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); display: flex; border-top: 1px solid #d1d1d6; padding: 10px 0 34px; }
@@ -75,8 +74,8 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
 <body>
 
 <div class="header">
-    <div class="sys-title" id="display-title">MAIN_APP_V1.0</div>
-    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>LIVE_LOG</div>
+    <div class="sys-title" id="display-title">MAIN_DASHBOARD</div>
+    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>SYSTEM_LIVE</div>
 </div>
 
 <div class="content">
@@ -89,13 +88,13 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
         <option value="expense">支出</option>
         <option value="income">収入</option>
       </select>
-      <input type="text" id="category" placeholder="カテゴリ（食費など）">
+      <input type="text" id="category" placeholder="カテゴリ">
       <input type="text" id="memo" placeholder="メモ">
-      <button class="main-btn" onclick="addData()">データ記録を実行</button>
+      <button class="main-btn" onclick="addData()">データを記録</button>
     </div>
 
     <div class="card total-box">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; letter-spacing:1px; text-transform:uppercase;">Current Balance</div>
+      <div style="font-size:11px; font-weight:700; color:#8e8e93;">Current Balance</div>
       <div class="total-amount" id="total">0円</div>
       <div id="alert"></div>
     </div>
@@ -106,44 +105,66 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
       <div>今週あと使える<span class="budget-val" id="weekRemaining">0円</span></div>
     </div>
 
+    <div class="card">
+      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">PROJECT_PRESET_REGISTRY</div>
+      <input type="text" id="store-name" placeholder="店名 / Project Name">
+      <div style="display: flex; gap: 8px;">
+        <input type="number" id="price-a" placeholder="DrinkA 単価" inputmode="numeric">
+        <input type="number" id="price-b" placeholder="DrinkB 単価" inputmode="numeric">
+      </div>
+      <button class="main-btn" style="background:#666;" onclick="saveStore()">プリセットを保存</button>
+      <div id="store-list-ui" style="margin-top:10px; font-size:12px; color:#666;"></div>
+    </div>
+
     <div class="card" id="list"></div>
   </div>
 
   <div id="page-terminal" class="page">
-    <div class="mock-dashboard">
-        <div class="card">
-            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D (DRINK)</div>
-            <div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
-        </div>
-        <div class="card">
-            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F (FOOD)</div>
-            <div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div><span style="font-size:10px; color:#aeaeb2;">cts</span>
-        </div>
+    <div id="project-selector-area" class="card">
+        <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">SELECT_ACTIVE_PROJECT</div>
+        <select id="active-project-id" onchange="loadProject()"></select>
     </div>
-    <div class="card" style="margin-top:-5px;">
-        <div style="font-size:9px; color:#8e8e93; font-weight:bold; letter-spacing:1px; margin-bottom:5px;">SESSION_EXPENDITURE_SCALE</div>
-        <div id="mock-total-val" style="font-size:32px; font-weight:800; color:#1c1c1e;">0.0</div><span style="font-size:12px; color:#aeaeb2; font-weight:bold; margin-left:4px;">k-units</span>
-    </div>
-    
-    <div class="card" style="padding: 20px;">
-        <div class="mode-selector">
-            <button id="btn-mode-d" class="mode-btn active-d" onclick="setMode('D')"><b>D</b><span>DRINK_MODE</span></button>
-            <button id="btn-mode-f" class="mode-btn" onclick="setMode('F')"><b>F</b><span>FOOD_MODE</span></button>
+
+    <div id="active-terminal-area" style="display:none;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+            <div class="card">
+                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">TASK_COUNT_A</div>
+                <div id="t-count-a" style="font-size:26px; font-weight:800;">0</div>
+            </div>
+            <div class="card">
+                <div style="font-size:9px; color:#8e8e93; font-weight:bold;">TASK_COUNT_B</div>
+                <div id="t-count-b" style="font-size:26px; font-weight:800;">0</div>
+            </div>
         </div>
-        <div class="num-grid">
-            <button class="num-btn" onclick="mockCommit(3)">③</button>
-            <button class="num-btn" onclick="mockCommit(4)">④</button>
-            <button class="num-btn" onclick="mockCommit(5)">⑤</button>
-            <button class="num-btn" onclick="mockCommit(6)">⑥</button>
-            <button class="num-btn" onclick="mockCommit(7)">⑦</button>
-            <button class="num-btn" onclick="mockCommit(8)">⑧</button>
-            <button class="num-btn" onclick="mockCommit(9)">⑨</button>
-            <button class="num-btn" onclick="mockCommit(10)">⑩</button>
-            <button class="num-btn" onclick="mockCommit(11)">⑪</button>
+        <div class="card" style="margin-top:-5px;">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold;">BUDGET_PROGRESS</div>
+            <div id="t-total-val" style="font-size:32px; font-weight:800; color:#1c1c1e;">0</div><span style="font-size:12px; color:#aeaeb2; font-weight:bold;"> units</span>
         </div>
-        <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
+        
+        <div class="card">
+            <div class="mode-selector">
+                <button id="btn-t-a" class="mode-btn active-d" onclick="tCommit('A')"><b>Task A</b><span id="label-price-a">0 units</span></button>
+                <button id="btn-t-b" class="mode-btn" onclick="tCommit('B')"><b>Task B</b><span id="label-price-b">0 units</span></button>
+            </div>
+            <div style="margin-bottom:15px;">
+                <input type="number" id="extra-cost" placeholder="Extra Cost (直接入力)" inputmode="numeric" style="margin:0;">
+                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra</button>
+            </div>
+            <button class="main-btn" style="background:#ff3b30; padding:18px;" onclick="showCheckout()">COMPLETE_PROJECT (会計)</button>
+            <div id="t-log" class="log-msg">READY_FOR_OPERATIONS</div>
+        </div>
     </div>
   </div>
+</div>
+
+<div id="checkout-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:1000; padding:40px 20px;">
+    <div class="card" style="margin-top:100px;">
+        <h3 style="margin:0 0 10px;">Final Accounting</h3>
+        <p style="font-size:12px; color:#666;">最終的な正確な会計金額を入力してください。</p>
+        <input type="number" id="final-amount" placeholder="最終金額" inputmode="numeric">
+        <button class="main-btn" onclick="finishProject()">確定して家計簿に反映</button>
+        <button class="main-btn" style="background:#ccc;" onclick="closeCheckout()">キャンセル</button>
+    </div>
 </div>
 
 <nav class="tab-bar">
@@ -152,93 +173,171 @@ input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size:
 </nav>
 
 <script>
-// --- 共通：ページ切替 ---
+// --- 基本データ構造 ---
+let data = JSON.parse(localStorage.getItem("moneyData")) || [];
+let stores = JSON.parse(localStorage.getItem("storePresets")) || [];
+let activeStore = null;
+let currentCounts = { A: 0, B: 0, extra: 0 };
+
+// --- 初期化 ---
+window.onload = () => {
+  const now = new Date();
+  document.getElementById("date").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  render();
+  updateStoreUI();
+};
+
+// --- ページ切替 ---
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V2.3';
+    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V4.0';
+    if(pageId === 'terminal') updateStoreSelect();
 }
 
-// --- メイン：家計簿ロジック (救出版) ---
-let data = JSON.parse(localStorage.getItem("moneyData")) || [];
-window.onload = () => {
-  const now = new Date();
-  document.getElementById("date").value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  render();
-};
+// --- 家計簿ロジック (既存維持) ---
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-function addData() {
-  const amountEl = document.getElementById("amount");
-  if (!amountEl.value) return alert("金額を入力してください");
-  data.push({
-    date: document.getElementById("date").value, amount: Number(amountEl.value),
-    type: document.getElementById("type").value, category: document.getElementById("category").value, memo: document.getElementById("memo").value
-  });
+function addData(customObj = null) {
+  const item = customObj || {
+    date: document.getElementById("date").value, 
+    amount: Number(document.getElementById("amount").value),
+    type: document.getElementById("type").value, 
+    category: document.getElementById("category").value, 
+    memo: document.getElementById("memo").value
+  };
+  if (!item.amount) return alert("金額を入力してください");
+  data.push(item);
   save(); render();
-  amountEl.value = ""; document.getElementById("memo").value = ""; document.getElementById("category").value = "";
+  if(!customObj) {
+      document.getElementById("amount").value = ""; 
+      document.getElementById("memo").value = ""; 
+      document.getElementById("category").value = "";
+  }
 }
+
 function render() {
   const list = document.getElementById("list"); list.innerHTML = "";
   let totalIncome = 0, totalExpense = 0, weekExpense = 0;
   const today = new Date();
-  const dayOfWeek = today.getDay(); 
   const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-  startOfWeek.setHours(0, 0, 0, 0);
-  const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
-  endOfWeek.setHours(23, 59, 59, 999);
+  startOfWeek.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+  startOfWeek.setHours(0,0,0,0);
 
-  data.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(d => {
-      const dDate = new Date(d.date);
-      const div = document.createElement("div");
-      div.className = "item " + d.type;
+  data.sort((a,b)=>new Date(b.date)-new Date(a.date)).forEach(d=>{
+      const div = document.createElement("div"); div.className = "item " + d.type;
       div.innerHTML = `<div><small style="color:#999; display:block;">${d.date}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`;
       list.appendChild(div);
-      if (d.type === "income") totalIncome += d.amount;
-      if (d.type === "expense") {
-        totalExpense += d.amount;
-        if (dDate >= startOfWeek && dDate <= endOfWeek) weekExpense += d.amount;
-      }
+      if(d.type==="income") totalIncome += d.amount;
+      else { totalExpense += d.amount; if(new Date(d.date)>=startOfWeek) weekExpense += d.amount; }
   });
   const total = totalIncome - totalExpense;
   document.getElementById("total").innerText = total.toLocaleString() + "円";
-  const rDays = Math.max(1, new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1);
+  const rDays = Math.max(1, new Date(today.getFullYear(), today.getMonth()+1, 0).getDate() - today.getDate() + 1);
   const tBudget = Math.floor(total / rDays);
-  const wRemaining = (tBudget * 7) - weekExpense;
   document.getElementById("todayBudget").innerText = (tBudget > 0 ? tBudget.toLocaleString() : 0) + "円";
-  document.getElementById("weekRemaining").innerText = wRemaining.toLocaleString() + "円";
-  const alertEl = document.getElementById("alert");
-  if (total < 0) { alertEl.innerText = "⚠️ 残高がマイナスです"; alertEl.style.color = "#dc3545"; }
-  else if (wRemaining < 0) { alertEl.innerText = "⚠️ 今週の予算を超えています"; alertEl.style.color = "#dc3545"; }
-  else { alertEl.innerText = "✅ 順調なペースです"; alertEl.style.color = "#28a745"; }
+  document.getElementById("weekRemaining").innerText = ((tBudget*7)-weekExpense).toLocaleString() + "円";
 }
 
-// --- 宴会モック：ロジック (完全復活版) ---
-let mMode = 'D', mDCount = 0, mFCount = 0, mTotal = 0;
-function setMode(mode) {
-    mMode = mode;
-    document.getElementById('btn-mode-d').className = mode === 'D' ? 'mode-btn active-d' : 'mode-btn';
-    document.getElementById('btn-mode-f').className = mode === 'F' ? 'mode-btn active-f' : 'mode-btn';
+// --- お店プリセット機能 ---
+function saveStore() {
+    const name = document.getElementById('store-name').value;
+    const a = Number(document.getElementById('price-a').value);
+    const b = Number(document.getElementById('price-b').value);
+    if(!name) return alert("店名を入力してください");
+    stores.push({ id: Date.now(), name, a, b });
+    localStorage.setItem("storePresets", JSON.stringify(stores));
+    updateStoreUI();
+    document.getElementById('store-name').value = "";
+    document.getElementById('price-a').value = "";
+    document.getElementById('price-b').value = "";
 }
-function mockCommit(val) {
-    if(mMode === 'D') mDCount++; else mFCount++;
-    mTotal += (val * 100);
-    document.getElementById('mock-d-count').innerText = mDCount;
-    document.getElementById('mock-f-count').innerText = mFCount;
-    document.getElementById('mock-total-val').innerText = (mTotal / 1000).toFixed(1);
+
+function updateStoreUI() {
+    const ui = document.getElementById('store-list-ui');
+    ui.innerHTML = stores.map(s => `<div>● ${s.name} (A:${s.a} / B:${s.b}) <span onclick="deleteStore(${s.id})" style="color:red; margin-left:10px;">×</span></div>`).join('');
+}
+
+function deleteStore(id) {
+    stores = stores.filter(s => s.id !== id);
+    localStorage.setItem("storePresets", JSON.stringify(stores));
+    updateStoreUI();
+}
+
+// --- ターミナル実戦ロジック ---
+function updateStoreSelect() {
+    const sel = document.getElementById('active-project-id');
+    sel.innerHTML = '<option value="">-- プロジェクトを選択 --</option>' + stores.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function loadProject() {
+    const id = document.getElementById('active-project-id').value;
+    activeStore = stores.find(s => s.id == id);
+    if(activeStore) {
+        document.getElementById('active-terminal-area').style.display = 'block';
+        document.getElementById('label-price-a').innerText = activeStore.a + " units";
+        document.getElementById('label-price-b').innerText = activeStore.b + " units";
+        currentCounts = { A: 0, B: 0, extra: 0 };
+        updateTDisplay();
+    }
+}
+
+function tCommit(type) {
+    currentCounts[type]++;
+    updateTDisplay();
+    logT(`TASK_${type}_LOGGED`);
+}
+
+function addExtra() {
+    const val = Number(document.getElementById('extra-cost').value);
+    currentCounts.extra += val;
+    document.getElementById('extra-cost').value = "";
+    updateTDisplay();
+    logT(`EXTRA_COST_ADDED`);
+}
+
+function updateTDisplay() {
+    document.getElementById('t-count-a').innerText = currentCounts.A;
+    document.getElementById('t-count-b').innerText = currentCounts.B;
+    const totalUnits = (currentCounts.A * activeStore.a) + (currentCounts.B * activeStore.b) + currentCounts.extra;
+    document.getElementById('t-total-val').innerText = totalUnits.toLocaleString();
+}
+
+function logT(msg) {
+    const el = document.getElementById('t-log');
+    el.innerHTML = `STATUS: ${msg}<br>SYSTEM_READY`;
+    setTimeout(()=> el.innerHTML = "SYSTEM: STANDBY<br>OPERATIONAL", 1500);
+}
+
+// --- 会計連携 ---
+function showCheckout() { document.getElementById('checkout-modal').style.display = 'block'; }
+function closeCheckout() { document.getElementById('checkout-modal').style.display = 'none'; }
+
+function finishProject() {
+    const finalAmount = Number(document.getElementById('final-amount').value);
+    if(!finalAmount) return alert("最終金額を入力してください");
     
-    const msg = document.getElementById('log-msg');
-    msg.innerHTML = `ENTRY_SUCCESS: ${mMode}+${val}00<br>LOGGING TO SYSTEM...`;
-    msg.style.color = mMode === 'D' ? '#FF9500' : '#34C759';
-    setTimeout(() => { 
-        msg.style.color = '#aeaeb2'; 
-        msg.innerHTML = "SYSTEM: STANDBY<br>TERMINAL_READY"; 
-    }, 1500);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    
+    const memoStr = `A:${currentCounts.A} B:${currentCounts.B} Ex:${currentCounts.extra}`;
+    
+    // 家計簿へデータ追加
+    addData({
+        date: dateStr,
+        amount: finalAmount,
+        type: 'expense',
+        category: activeStore.name,
+        memo: memoStr
+    });
+
+    alert("プロジェクト完了。家計簿に計上しました。");
+    closeCheckout();
+    document.getElementById('active-terminal-area').style.display = 'none';
+    document.getElementById('active-project-id').value = "";
+    switchPage('main', document.querySelector('.tab-item'));
 }
 </script>
 </body>
 </html>
-
