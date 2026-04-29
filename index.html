@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v4.3</title>
+<title>Integrated Ops Terminal v4.4</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -38,7 +38,7 @@ body {
 .card { background: white; padding: 15px; border-radius: 14px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.05); }
 
 /* --- フォーム部品 --- */
-input, select, .main-btn { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
+input, select, .main-btn, textarea { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
 .main-btn { background: var(--primary); color: white; border: none; font-weight: bold; margin-top: 10px; }
 .main-btn:active { opacity: 0.7; }
 
@@ -83,7 +83,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 
 /* --- モーダル & ログ用 --- */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; padding:20px; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
-.modal-content { background:white; width:100%; max-width:400px; border-radius:14px; padding:20px; }
+.modal-content { background:white; width:100%; max-width:400px; border-radius:14px; padding:20px; max-height: 90vh; overflow-y: auto; }
 .action-log-list { max-height: 150px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #eee; }
 .action-log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
 .action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; }
@@ -100,7 +100,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
   <div id="page-main" class="page active">
     <h2>入出金管理</h2>
     <div class="card">
-      <input type="hidden" id="edit-record-id">
       <div style="display:flex; gap:10px;">
         <input type="date" id="date" style="flex:2;">
         <input type="time" id="time" style="flex:1;">
@@ -237,14 +236,14 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.2rem; font-weight: 80
 
 <div id="detail-modal" class="modal-overlay">
     <div class="modal-content" id="detail-content">
-        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">データ詳細</h3>
+        <h3 id="detail-modal-title" style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">データ詳細</h3>
         <div id="detail-data-view" style="font-size:14px; line-height:1.8; margin-bottom:15px;"></div>
         
-        <div style="display:flex; gap:10px; margin-top:15px;">
+        <div id="detail-action-btns" style="display:flex; gap:10px; margin-top:15px;">
             <button id="detail-edit-btn" class="main-btn" style="background:#28a745; margin:0;">編集する</button>
             <button id="detail-del-btn" class="main-btn" style="background:#ff3b30; margin:0;">削除する</button>
         </div>
-        <button class="main-btn" style="background:#ccc; margin-top:10px;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>
+        <button id="detail-close-btn" class="main-btn" style="background:#ccc; margin-top:10px;" onclick="closeDetailModal()">閉じる</button>
     </div>
 </div>
 
@@ -279,7 +278,7 @@ function switchPage(pageId, el) {
     document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V4.3';
+    document.getElementById('display-title').innerText = pageId === 'main' ? 'MAIN_DASHBOARD' : 'TERMINAL_OP_V4.4';
     if(pageId === 'terminal') updateStoreSelect();
 }
 
@@ -287,8 +286,6 @@ function switchPage(pageId, el) {
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
 
 function addData(customObj = null) {
-    const editId = document.getElementById('edit-record-id').value;
-
     if (customObj) {
         // ターミナル（会計）からの追加
         data.push(customObj);
@@ -299,35 +296,18 @@ function addData(customObj = null) {
     const amount = Number(document.getElementById("amount").value);
     if (!amount) return alert("金額を入力してください");
 
-    if (editId) {
-        // 既存データの更新（編集）
-        const idx = data.findIndex(item => item.id == editId);
-        if(idx > -1) {
-            data[idx].date = document.getElementById("date").value;
-            data[idx].time = document.getElementById("time").value;
-            data[idx].amount = amount;
-            data[idx].type = document.getElementById("type").value;
-            data[idx].category = document.getElementById("category").value;
-            data[idx].memo = document.getElementById("memo").value;
-        }
-        document.getElementById('edit-record-id').value = "";
-        const btn = document.getElementById('main-record-btn');
-        btn.innerText = "データを記録";
-        btn.style.background = "var(--primary)";
-    } else {
-        // 新規データの追加
-        const now = new Date();
-        data.push({
-            id: Date.now(),
-            date: document.getElementById("date").value, 
-            time: document.getElementById("time").value || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-            timestamp: Date.now(),
-            amount: amount,
-            type: document.getElementById("type").value, 
-            category: document.getElementById("category").value, 
-            memo: document.getElementById("memo").value
-        });
-    }
+    const now = new Date();
+    data.push({
+        id: Date.now(),
+        date: document.getElementById("date").value, 
+        time: document.getElementById("time").value || `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
+        timestamp: Date.now(),
+        amount: amount,
+        type: document.getElementById("type").value, 
+        category: document.getElementById("category").value, 
+        memo: document.getElementById("memo").value,
+        actionLogText: "" // 新規の場合は空のテキスト
+    });
     
     save(); render();
     document.getElementById("amount").value = "";
@@ -372,14 +352,27 @@ function render() {
     document.getElementById("weekRemaining").innerText = ((tBudget*7)-weekExpense).toLocaleString() + "円";
 }
 
-// 履歴の詳細表示と編集・削除の準備
+// モーダルを閉じる
+function closeDetailModal() {
+    document.getElementById('detail-modal').style.display = 'none';
+}
+
+// 履歴の詳細表示
 function showDetail(id) {
     const d = data.find(item => item.id === id);
     if(!d) return;
 
     const view = document.getElementById('detail-data-view');
+    document.getElementById('detail-modal-title').innerText = "データ詳細";
+    
     const typeStr = d.type === 'expense' ? '<span style="color:#dc3545;font-weight:bold;">支出</span>' : '<span style="color:#28a745;font-weight:bold;">収入</span>';
     
+    // 過去データ（配列）がある場合の互換処理を含め、テキスト化する
+    let logText = d.actionLogText !== undefined ? d.actionLogText : "";
+    if (!logText && d.actionLog && d.actionLog.length > 0) {
+        logText = d.actionLog.map(a => `${a.time} ${a.label} +${a.cost}`).join('\n');
+    }
+
     let html = `
         <strong>日時:</strong> ${d.date} ${d.time || ''}<br>
         <strong>区分:</strong> ${typeStr}<br>
@@ -388,48 +381,82 @@ function showDetail(id) {
         <strong>メモ:</strong> ${d.memo || 'なし'}
     `;
 
-    // アクションログ（注文内容）があれば一覧表示する
-    if (d.actionLog && d.actionLog.length > 0) {
+    if (logText) {
         html += `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
-                    <strong style="color:#8e8e93; font-size:11px;">■ 注文内容 (詳細明細)</strong>
-                    <div style="max-height: 120px; overflow-y: auto; margin-top:5px; border:1px solid #f0f2f5; padding:5px; border-radius:6px; background:#fafafa;">`;
-        d.actionLog.forEach(a => {
-            html += `<div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px dashed #e5e5ea; padding:4px 0;">
-                        <span><span style="color:#aaa; margin-right:5px;">${a.time}</span>${a.label}</span>
-                        <span style="font-family:monospace; font-weight:bold;">+${a.cost}</span>
-                     </div>`;
-        });
-        html += `</div></div>`;
+                    <strong style="color:#8e8e93; font-size:11px;">■ 明細・覚書</strong>
+                    <div style="margin-top:5px; font-size:12px; white-space:pre-wrap; background:#fafafa; padding:8px; border-radius:6px; border:1px solid #e5e5ea;">${logText}</div>
+                 </div>`;
     }
 
     view.innerHTML = html;
 
-    // 編集・削除ボタンに現在のIDをセット
-    document.getElementById('detail-edit-btn').onclick = () => editRecord(id);
+    // 表示切り替え
+    document.getElementById('detail-action-btns').style.display = 'flex';
+    document.getElementById('detail-close-btn').style.display = 'block';
+    
+    document.getElementById('detail-edit-btn').onclick = () => openEditMode(id);
     document.getElementById('detail-del-btn').onclick = () => deleteRecord(id);
 
     document.getElementById('detail-modal').style.display = 'flex';
 }
 
-// 履歴の編集処理
-function editRecord(id) {
+// 履歴のインライン編集モード（モーダル内）
+function openEditMode(id) {
     const d = data.find(item => item.id === id);
     if(!d) return;
 
-    document.getElementById('edit-record-id').value = d.id;
-    document.getElementById('date').value = d.date;
-    document.getElementById('time').value = d.time || "";
-    document.getElementById('amount').value = d.amount;
-    document.getElementById('type').value = d.type;
-    document.getElementById('category').value = d.category || "";
-    document.getElementById('memo').value = d.memo || "";
+    const view = document.getElementById('detail-data-view');
+    document.getElementById('detail-modal-title').innerText = "データ編集";
 
-    const btn = document.getElementById('main-record-btn');
-    btn.innerText = "データを更新";
-    btn.style.background = "#28a745"; // グリーンに変更して編集中をアピール
+    // テキスト抽出
+    let logText = d.actionLogText !== undefined ? d.actionLogText : "";
+    if (!logText && d.actionLog && d.actionLog.length > 0) {
+        logText = d.actionLog.map(a => `${a.time} ${a.label} +${a.cost}`).join('\n');
+    }
 
-    document.getElementById('detail-modal').style.display = 'none';
-    window.scrollTo(0,0);
+    view.innerHTML = `
+        <div style="display:flex; gap:10px; margin-bottom:8px;">
+            <input type="date" id="edit-m-date" value="${d.date}" style="flex:2; padding:8px; border:1px solid #ccc; border-radius:4px; margin:0;">
+            <input type="time" id="edit-m-time" value="${d.time || ''}" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; margin:0;">
+        </div>
+        <select id="edit-m-type" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
+            <option value="expense" ${d.type==='expense'?'selected':''}>支出</option>
+            <option value="income" ${d.type==='income'?'selected':''}>収入</option>
+        </select>
+        <input type="number" id="edit-m-amount" value="${d.amount}" placeholder="金額" inputmode="numeric" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
+        <input type="text" id="edit-m-category" value="${d.category || ''}" placeholder="カテゴリ" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
+        <input type="text" id="edit-m-memo" value="${d.memo || ''}" placeholder="メモ" style="width:100%; padding:8px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px;">
+        
+        <div style="font-size:11px; color:#8e8e93; font-weight:bold; margin-bottom:4px; margin-top:10px;">明細・覚書 (テキストで自由編集)</div>
+        <textarea id="edit-m-logtext" rows="5" placeholder="例：タクシー代追加、〇〇さんと食事" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:4px; font-size:12px; margin:0;">${logText}</textarea>
+        
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="main-btn" style="background:#007aff; margin:0;" onclick="saveEditedRecord(${id})">保存する</button>
+            <button class="main-btn" style="background:#ccc; margin:0;" onclick="showDetail(${id})">キャンセル</button>
+        </div>
+    `;
+
+    // 既存のボタンを隠す
+    document.getElementById('detail-action-btns').style.display = 'none';
+    document.getElementById('detail-close-btn').style.display = 'none';
+}
+
+// 編集の保存処理
+function saveEditedRecord(id) {
+    const idx = data.findIndex(item => item.id === id);
+    if(idx > -1) {
+        data[idx].date = document.getElementById("edit-m-date").value;
+        data[idx].time = document.getElementById("edit-m-time").value;
+        data[idx].amount = Number(document.getElementById("edit-m-amount").value);
+        data[idx].type = document.getElementById("edit-m-type").value;
+        data[idx].category = document.getElementById("edit-m-category").value;
+        data[idx].memo = document.getElementById("edit-m-memo").value;
+        data[idx].actionLogText = document.getElementById("edit-m-logtext").value;
+        data[idx].actionLog = []; // 配列形式は不要になったためクリア
+    }
+    save();
+    render();
+    showDetail(id); // 保存後は詳細ビューに戻る
 }
 
 // 履歴の削除処理
@@ -438,7 +465,7 @@ function deleteRecord(id) {
     data = data.filter(item => item.id !== id);
     save();
     render();
-    document.getElementById('detail-modal').style.display = 'none';
+    closeDetailModal();
 }
 
 // --- お店データ管理 (CRUD) ---
@@ -689,6 +716,9 @@ function finishProject() {
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const memoStr = `D:${mDCount} F:${mFCount} (Est:${mTotal})`;
     
+    // 会計時にアクションログを一塊のテキストに変換して保存する
+    const logText = actionLog.map(a => `${a.time} ${a.label} +${a.cost}`).join('\n');
+    
     addData({
         id: Date.now(),
         date: dateStr,
@@ -698,8 +728,7 @@ function finishProject() {
         type: 'expense',
         category: activeStore.name,
         memo: memoStr,
-        // ここでアクションログ（注文明細）をコピーして保存
-        actionLog: JSON.parse(JSON.stringify(actionLog))
+        actionLogText: logText // テキストブロックとして保存
     });
     
     alert("会計完了。記録しました。");
