@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.2</title>
+<title>Integrated Ops Terminal v5.3</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -56,7 +56,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .metric-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
 .metric-label { font-size: 9px; font-weight: bold; color: #8e8e93; width: 85px; letter-spacing: -0.5px; }
 .progress-container { background: #e5e5ea; border-radius: 4px; height: 8px; flex: 1; margin-left: 10px; overflow: hidden; }
-.progress-bar { height: 100%; width: 100%; background: #34C759; transition: width 0.3s ease, background 0.3s ease; }
+.progress-bar { height: 100%; width: 100%; background: #34C759; transition: width 0.3s ease; }
 .metric-val { font-size: 9px; color: #1c1c1e; font-weight: bold; width: 40px; text-align: right; font-family: monospace; }
 
 .extra-toggle { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -111,7 +111,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <input type="number" id="amount" placeholder="金額" inputmode="numeric">
       <select id="type">
         <option value="expense">支出</option>
-        <option value="income">収入</option> <!-- 変更: 「臨時収入」から「収入」へ -->
+        <option value="income">収入</option>
       </select>
       <input type="text" id="category" placeholder="カテゴリ">
       <input type="text" id="memo" placeholder="メモ">
@@ -184,7 +184,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93; box-shadow:0 1px 2px rgba(0,0,0,0.05);">↩ UNDO</button>
             </div>
             
-            <!-- 3連プログレスバー追加 -->
             <div class="metric-row">
                 <div class="metric-label">[DAY_LIMIT]</div>
                 <div class="progress-container"><div id="bar-day" class="progress-bar"></div></div>
@@ -285,7 +284,6 @@ let mDCount = 0, mFCount = 0, mTotal = 0;
 let actionLog = []; 
 let currentExtraMode = 'D'; 
 
-// 日付フォーマット関数
 const formatStr = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
 
 window.onload = () => {
@@ -301,7 +299,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.2', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.3', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -318,22 +316,10 @@ function renderFixed() {
         exTotal += e.amount;
         return `<div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom:1px dashed #eee;"><span>${e.name}</span><div><span>${e.amount.toLocaleString()}円</span><button onclick="delFixed(${idx})" style="margin-left:10px; background:#ff3b30; color:white; border:none; border-radius:4px; padding:2px 6px;">✖</button></div></div>`;
     }).join('');
-    
     document.getElementById('monthly-free-money').innerText = ((fixedData.income || 0) - exTotal).toLocaleString() + "円";
 }
-function saveFixedData() {
-    fixedData.income = Number(document.getElementById('base-income').value) || 0;
-    localStorage.setItem("fixedData", JSON.stringify(fixedData));
-    renderFixed(); render();
-}
-function addFixedExpense() {
-    const name = document.getElementById('fixed-name').value;
-    const amount = Number(document.getElementById('fixed-amount').value);
-    if(!name || !amount) return;
-    fixedData.expenses.push({name, amount});
-    document.getElementById('fixed-name').value = ""; document.getElementById('fixed-amount').value = "";
-    saveFixedData();
-}
+function saveFixedData() { fixedData.income = Number(document.getElementById('base-income').value) || 0; localStorage.setItem("fixedData", JSON.stringify(fixedData)); renderFixed(); render(); }
+function addFixedExpense() { const name = document.getElementById('fixed-name').value; const amount = Number(document.getElementById('fixed-amount').value); if(!name || !amount) return; fixedData.expenses.push({name, amount}); document.getElementById('fixed-name').value = ""; document.getElementById('fixed-amount').value = ""; saveFixedData(); }
 function delFixed(idx) { fixedData.expenses.splice(idx, 1); saveFixedData(); }
 
 // --- 月末スタート・サイクル計算ロジック ---
@@ -348,19 +334,13 @@ function getCycle(dObj = new Date()) {
         startD = new Date(y, m - 1, new Date(y, m, 0).getDate());
         endD = new Date(y, m, lastDayThisMonth - 1);
     }
-    return { 
-        startStr: formatStr(startD), endStr: formatStr(endD),
-        nextPayStr: formatStr(new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1)),
-        nextPayObj: new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1)
-    };
+    return { startStr: formatStr(startD), endStr: formatStr(endD), nextPayStr: formatStr(new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1)), nextPayObj: new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1) };
 }
 
 function calculateCurrentBudget() {
     const today = new Date(); today.setHours(0,0,0,0);
     const cycle = getCycle(today);
-    
     let freeMoney = (fixedData.income || 0) - fixedData.expenses.reduce((sum, e) => sum + e.amount, 0);
-
     let cycleExpense = 0; let cycleIncome = 0;
     data.forEach(d => {
         if(d.date >= cycle.startStr && d.date < cycle.nextPayStr) {
@@ -368,40 +348,29 @@ function calculateCurrentBudget() {
             if(d.type === 'income') cycleIncome += d.amount;
         }
     });
-
     let currentBalance = freeMoney + cycleIncome - cycleExpense;
     const diffTime = cycle.nextPayObj.getTime() - today.getTime();
     const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
     let todayBudget = remainingDays > 0 ? Math.floor(currentBalance / remainingDays) : currentBalance;
-    
     const dayOfWeek = today.getDay(); 
     const daysToSunday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek); 
     let weekRemaining = todayBudget * daysToSunday;
-
     return { currentBalance, todayBudget, weekRemaining, freeMoney, cycleText: `${cycle.startStr.slice(5)} 〜 ${cycle.endStr.slice(5)}`, startStr: cycle.startStr, nextPayStr: cycle.nextPayStr };
 }
 
 // --- 家計簿コア機能 ---
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-
 function addData(customObj = null) {
     if (customObj) { data.push(customObj); save(); render(); return; }
-    const amount = Number(document.getElementById("amount").value);
-    if (!amount) return alert("金額を入力してください");
-    data.push({
-        id: Date.now(), date: document.getElementById("date").value, time: document.getElementById("time").value || "00:00",
-        timestamp: Date.now(), amount: amount, type: document.getElementById("type").value, 
-        category: document.getElementById("category").value, memo: document.getElementById("memo").value, actionLogText: ""
-    });
+    const amount = Number(document.getElementById("amount").value); if (!amount) return alert("金額を入力してください");
+    data.push({ id: Date.now(), date: document.getElementById("date").value, time: document.getElementById("time").value || "00:00", timestamp: Date.now(), amount: amount, type: document.getElementById("type").value, category: document.getElementById("category").value, memo: document.getElementById("memo").value, actionLogText: "" });
     save(); render(); document.getElementById("amount").value = ""; document.getElementById("memo").value = ""; document.getElementById("category").value = "";
 }
 
 function render() {
     const list = document.getElementById("list"); list.innerHTML = "";
     const calc = calculateCurrentBudget();
-    
     document.getElementById("cycle-title").innerText = `現在のサイクル実績 (${calc.cycleText})`;
-    
     data.filter(d => d.date >= calc.startStr && d.date < calc.nextPayStr)
         .sort((a,b) => b.timestamp - a.timestamp).forEach(d => {
         const div = document.createElement("div"); div.className = "item " + d.type;
@@ -409,13 +378,11 @@ function render() {
         div.onclick = () => showDetail(d.id);
         list.appendChild(div);
     });
-
     document.getElementById("total").innerText = calc.currentBalance.toLocaleString() + "円";
     document.getElementById("todayBudget").innerText = (calc.todayBudget > 0 ? calc.todayBudget.toLocaleString() : 0) + "円";
     document.getElementById("weekRemaining").innerText = (calc.weekRemaining > 0 ? calc.weekRemaining.toLocaleString() : 0) + "円";
 }
 
-// 編集機能の追加
 function showDetail(id) {
     const d = data.find(item => item.id === id); if(!d) return;
     document.getElementById('detail-content').innerHTML = `
@@ -431,18 +398,11 @@ function showDetail(id) {
         <button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`;
     document.getElementById('detail-modal').style.display = 'flex';
 }
-
 function updateRecord(id) {
     const idx = data.findIndex(item => item.id === id); if(idx === -1) return;
-    data[idx].date = document.getElementById('edit-date').value;
-    data[idx].time = document.getElementById('edit-time').value;
-    data[idx].type = document.getElementById('edit-type').value;
-    data[idx].amount = Number(document.getElementById('edit-amount').value);
-    data[idx].category = document.getElementById('edit-category').value;
-    data[idx].memo = document.getElementById('edit-memo').value;
+    data[idx].date = document.getElementById('edit-date').value; data[idx].time = document.getElementById('edit-time').value; data[idx].type = document.getElementById('edit-type').value; data[idx].amount = Number(document.getElementById('edit-amount').value); data[idx].category = document.getElementById('edit-category').value; data[idx].memo = document.getElementById('edit-memo').value;
     save(); render(); document.getElementById('detail-modal').style.display = 'none';
 }
-
 function deleteRecord(id) { if(!confirm("削除しますか？")) return; data = data.filter(item => item.id !== id); save(); render(); document.getElementById('detail-modal').style.display = 'none'; }
 
 // --- お店データ管理 ---
@@ -450,82 +410,64 @@ function saveStore() {
     const id = document.getElementById('edit-store-id').value; const name = document.getElementById('store-name').value;
     const a = Number(document.getElementById('price-a').value); const b = Number(document.getElementById('price-b').value);
     if(!name) return;
-    if(id) { const idx = stores.findIndex(s => s.id == id); stores[idx] = { id: Number(id), name, a, b }; } 
-    else { stores.push({ id: Date.now(), name, a, b }); }
+    if(id) { const idx = stores.findIndex(s => s.id == id); stores[idx] = { id: Number(id), name, a, b }; } else { stores.push({ id: Date.now(), name, a, b }); }
     localStorage.setItem("storePresets", JSON.stringify(stores)); updateStoreUI();
     document.getElementById('edit-store-id').value = ""; document.getElementById('store-name').value = ""; document.getElementById('price-a').value = ""; document.getElementById('price-b').value = "";
 }
-function updateStoreUI() {
-    document.getElementById('store-list-ui').innerHTML = stores.map(s => `
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;">
-            <div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div>
-            <button onclick="stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets', JSON.stringify(stores));updateStoreUI();" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button>
-        </div>`).join('');
-}
+function updateStoreUI() { document.getElementById('store-list-ui').innerHTML = stores.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;"><div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div><button onclick="stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets', JSON.stringify(stores));updateStoreUI();" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button></div>`).join(''); }
 
 // --- ターミナル実戦ロジック ---
 function updateStoreSelect() { document.getElementById('active-project-id').innerHTML = '<option value="">-- プロジェクト選択 --</option>' + stores.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-function handleProjectSelection() {
-    activeStore = stores.find(s => s.id == document.getElementById('active-project-id').value);
-    if(activeStore) { document.getElementById('active-terminal-area').style.display = 'block'; document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; mDCount = 0; mFCount = 0; mTotal = 0; actionLog = []; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }
-}
+function handleProjectSelection() { activeStore = stores.find(s => s.id == document.getElementById('active-project-id').value); if(activeStore) { document.getElementById('active-terminal-area').style.display = 'block'; document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; mDCount = 0; mFCount = 0; mTotal = 0; actionLog = []; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); } }
 
 const getT = () => { const n = new Date(); return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; };
-
-// 修正箇所: Task B の表記を (D) に変更
 function commitTaskA() { mDCount++; mTotal += activeStore.a; actionLog.push({ id: Date.now(), time: getT(), cost: activeStore.a, d: 1, f: 0, label: 'Task A(D)' }); updateTDisplay(); logT('TASK A'); }
 function commitTaskB() { mDCount++; mTotal += activeStore.b; actionLog.push({ id: Date.now(), time: getT(), cost: activeStore.b, d: 1, f: 0, label: 'Task B(D)' }); updateTDisplay(); logT('TASK B'); }
 function selectTaskF() { document.getElementById('btn-task-f').classList.add('active-f'); logT('AWAITING NUM'); }
 function commitNum(val) { const c = val * 100; mFCount++; mTotal += c; actionLog.push({ id: Date.now(), time: getT(), cost: c, d: 0, f: 1, label: `Task F(${val})` }); updateTDisplay(); logT('TASK F'); document.getElementById('btn-task-f').classList.add('active-f'); }
-
 function setExtraMode(mode) { currentExtraMode = mode; document.getElementById('ext-btn-d').className = mode === 'D' ? 'ext-btn active-d' : 'ext-btn'; document.getElementById('ext-btn-f').className = mode === 'F' ? 'ext-btn active-f' : 'ext-btn'; }
-function addExtra() { 
-    const val = Number(document.getElementById('extra-cost').value); if(!val) return;
-    let isD = currentExtraMode === 'D' ? 1 : 0; let isF = currentExtraMode === 'F' ? 1 : 0;
-    if(isD) mDCount++; if(isF) mFCount++; mTotal += val; 
-    actionLog.push({ id: Date.now(), time: getT(), cost: val, d: isD, f: isF, label: `Extra(${currentExtraMode})` }); 
-    document.getElementById('extra-cost').value = ""; updateTDisplay(); logT('EXTRA ADDED'); 
-}
-function addStealthMemo() {
-    const text = document.getElementById('stealth-memo-input').value; if(!text) return;
-    actionLog.push({ id: Date.now(), time: getT(), cost: 0, d: 0, f: 0, label: `【メモ】${text}` });
-    document.getElementById('stealth-memo-input').value = ""; updateTDisplay(); logT('MEMO RECORDED');
-}
+function addExtra() { const val = Number(document.getElementById('extra-cost').value); if(!val) return; let isD = currentExtraMode === 'D' ? 1 : 0; let isF = currentExtraMode === 'F' ? 1 : 0; if(isD) mDCount++; if(isF) mFCount++; mTotal += val; actionLog.push({ id: Date.now(), time: getT(), cost: val, d: isD, f: isF, label: `Extra(${currentExtraMode})` }); document.getElementById('extra-cost').value = ""; updateTDisplay(); logT('EXTRA ADDED'); }
+function addStealthMemo() { const text = document.getElementById('stealth-memo-input').value; if(!text) return; actionLog.push({ id: Date.now(), time: getT(), cost: 0, d: 0, f: 0, label: `【メモ】${text}` }); document.getElementById('stealth-memo-input').value = ""; updateTDisplay(); logT('MEMO RECORDED'); }
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
-// 3連マルチプログレスバー計算ロジック
+// v5.3 オーバーロード対応版 マルチプログレスバー計算ロジック
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
-    let dMax = calc.todayBudget > 0 ? calc.todayBudget : 1;
-    let wMax = calc.weekRemaining > 0 ? calc.weekRemaining : 1;
-    let cMax = calc.currentBalance > 0 ? calc.currentBalance : 1;
+    let dMax = calc.todayBudget;
+    let wMax = calc.weekRemaining;
+    let cMax = calc.currentBalance;
     
-    // 残り割合の計算
-    let dPct = Math.max(0, Math.min(100, ((dMax - mTotal) / dMax) * 100));
-    let wPct = Math.max(0, Math.min(100, ((wMax - mTotal) / wMax) * 100));
-    let cPct = Math.max(0, Math.min(100, ((cMax - mTotal) / cMax) * 100));
-    
-    // 幅の更新
-    document.getElementById('bar-day').style.width = dPct + '%';
-    document.getElementById('bar-week').style.width = wPct + '%';
-    document.getElementById('bar-core').style.width = cPct + '%';
-    
-    // 値のテキスト更新
-    document.getElementById('val-day').innerText = Math.floor(dPct) + '%';
-    document.getElementById('val-week').innerText = Math.floor(wPct) + '%';
-    document.getElementById('val-core').innerText = Math.floor(cPct) + '%';
-    
-    // 色の判定 (共通関数)
-    const getColor = (pct) => {
-        if(pct > 50) return '#34C759'; // 緑
-        if(pct > 20) return '#FFCC00'; // 黄
-        return '#FF3B30'; // 赤
+    const updateBar = (barId, valId, maxVal, currentSpend) => {
+        let bar = document.getElementById(barId);
+        let val = document.getElementById(valId);
+        let remain = maxVal - currentSpend;
+        
+        if (maxVal <= 0 && currentSpend === 0) {
+            // 予算がゼロでまだ何も使っていない初期状態
+            bar.style.width = '0%';
+            bar.style.background = '#e5e5ea';
+            val.innerText = '0%';
+            val.style.color = '#8e8e93';
+        } else if (remain < 0 || maxVal < 0) {
+            // オーバーロード状態（限界突破）
+            bar.style.width = '100%';
+            bar.style.background = 'repeating-linear-gradient(45deg, #ff3b30, #ff3b30 8px, #ff6b6b 8px, #ff6b6b 16px)';
+            val.innerText = 'OVER';
+            val.style.color = '#ff3b30';
+        } else {
+            // 正常消費状態
+            let pct = (remain / maxVal) * 100;
+            bar.style.width = pct + '%';
+            val.innerText = Math.floor(pct) + '%';
+            val.style.color = '#1c1c1e';
+            bar.style.background = pct > 50 ? '#34C759' : (pct > 20 ? '#FFCC00' : '#FF3B30');
+        }
     };
-    
-    document.getElementById('bar-day').style.background = getColor(dPct);
-    document.getElementById('bar-week').style.background = getColor(wPct);
-    document.getElementById('bar-core').style.background = getColor(cPct);
+
+    updateBar('bar-day', 'val-day', dMax, mTotal);
+    updateBar('bar-week', 'val-week', wMax, mTotal);
+    updateBar('bar-core', 'val-core', cMax, mTotal);
 }
 
 function updateTDisplay() {
@@ -555,3 +497,5 @@ function finishProject() {
 </script>
 </body>
 </html>
+
+
