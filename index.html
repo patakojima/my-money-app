@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.6</title>
+<title>Integrated Ops Terminal v5.7</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -146,7 +146,9 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">固定費（家賃、光熱費、サブスク等）</div>
+      <!-- V5.7 日付指定対応 -->
       <div style="display: flex; gap: 8px;">
+        <input type="number" id="fixed-day" placeholder="日" inputmode="numeric" style="flex:1; max-width:60px;">
         <input type="text" id="fixed-name" placeholder="項目名" style="flex:2;">
         <input type="number" id="fixed-amount" placeholder="金額" inputmode="numeric" style="flex:1;">
       </div>
@@ -257,6 +259,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
             <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div>
+                <!-- V5.6 全行表示仕様 -->
                 <div id="action-log-list" class="action-log-list"></div>
             </div>
 
@@ -310,7 +313,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.6', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.7', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -319,18 +322,36 @@ function switchPage(pageId, el) {
     }
 }
 
-// --- FIXED (定期入出金) ---
+// --- FIXED (定期入出金) V5.7 日付対応 ---
 function renderFixed() {
     document.getElementById('base-income').value = fixedData.income || "";
     let exTotal = 0;
     document.getElementById('fixed-list-ui').innerHTML = fixedData.expenses.map((e, idx) => {
         exTotal += e.amount;
-        return `<div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom:1px dashed #eee;"><span>${e.name}</span><div><span>${e.amount.toLocaleString()}円</span><button onclick="delFixed(${idx})" style="margin-left:10px; background:#ff3b30; color:white; border:none; border-radius:4px; padding:2px 6px;">✖</button></div></div>`;
+        let dayStr = e.day ? `<span style="display:inline-block; width:35px; color:#8e8e93; font-size:12px; font-family:monospace;">${e.day}日</span>` : '';
+        return `<div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom:1px dashed #eee;">
+            <div>${dayStr}<span>${e.name}</span></div>
+            <div><span>${e.amount.toLocaleString()}円</span><button onclick="delFixed(${idx})" style="margin-left:10px; background:#ff3b30; color:white; border:none; border-radius:4px; padding:2px 6px;">✖</button></div>
+        </div>`;
     }).join('');
     document.getElementById('monthly-free-money').innerText = ((fixedData.income || 0) - exTotal).toLocaleString() + "円";
 }
 function saveFixedData() { fixedData.income = Number(document.getElementById('base-income').value) || 0; localStorage.setItem("fixedData", JSON.stringify(fixedData)); renderFixed(); render(); }
-function addFixedExpense() { const name = document.getElementById('fixed-name').value; const amount = Number(document.getElementById('fixed-amount').value); if(!name || !amount) return; fixedData.expenses.push({name, amount}); document.getElementById('fixed-name').value = ""; document.getElementById('fixed-amount').value = ""; saveFixedData(); }
+function addFixedExpense() { 
+    const day = document.getElementById('fixed-day').value;
+    const name = document.getElementById('fixed-name').value; 
+    const amount = Number(document.getElementById('fixed-amount').value); 
+    if(!name || !amount) return; 
+    fixedData.expenses.push({day, name, amount}); 
+    
+    // 日付順にソート (未入力は下へ)
+    fixedData.expenses.sort((a, b) => (Number(a.day) || 99) - (Number(b.day) || 99));
+
+    document.getElementById('fixed-day').value = "";
+    document.getElementById('fixed-name').value = ""; 
+    document.getElementById('fixed-amount').value = ""; 
+    saveFixedData(); 
+}
 function delFixed(idx) { fixedData.expenses.splice(idx, 1); saveFixedData(); }
 
 // --- 月末スタート・サイクル計算ロジック ---
@@ -453,6 +474,7 @@ function addStealthMemo() { const text = document.getElementById('stealth-memo-i
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
+// V5.5 金額表示対応版 マルチプログレスバー計算ロジック
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
     let dMax = calc.todayBudget;
@@ -514,5 +536,3 @@ function finishProject() {
 </script>
 </body>
 </html>
-
-
