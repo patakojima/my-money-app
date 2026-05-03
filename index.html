@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.5</title>
+<title>Integrated Ops Terminal v5.6</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -52,7 +52,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; }
 .num-btn:active { transform: scale(0.92); background: #e5e5ea; }
 
-/* 3連プログレスバー (SYS_RESOURCE_METRICS) v5.5 金額表示レイアウト */
+/* 3連プログレスバー (SYS_RESOURCE_METRICS) v5.6 金額表示レイアウト */
 .metric-header { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 4px; }
 .metric-label { font-size: 10px; font-weight: bold; color: #8e8e93; letter-spacing: -0.5px; }
 .metric-amt { font-size: 11px; font-weight: bold; color: #1c1c1e; font-family: monospace; margin-left: 6px; }
@@ -75,7 +75,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 /* モーダル */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; padding:20px; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
 .modal-content { background:white; width:100%; max-width:400px; border-radius:14px; padding:20px; max-height: 90vh; overflow-y: auto; }
-/* V5.5 高さとスクロール制限を解除（全行表示） */
+/* V5.6 高さとスクロール制限を解除（全行表示） */
 .action-log-list { margin-top: 10px; border-top: 1px solid #eee; }
 .action-log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
 .action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; }
@@ -186,7 +186,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93; box-shadow:0 1px 2px rgba(0,0,0,0.05);">↩ UNDO</button>
             </div>
             
-            <!-- V5.5 金額表記付きレイアウト -->
+            <!-- V5.6 金額表記付きレイアウト -->
             <div>
                 <div class="metric-header">
                     <div class="metric-label">[DAY_LIMIT] <span id="amt-day" class="metric-amt">0円</span></div>
@@ -257,7 +257,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
             <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div>
-                <!-- V5.5 全行表示仕様 -->
                 <div id="action-log-list" class="action-log-list"></div>
             </div>
 
@@ -311,7 +310,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.5', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.6', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -454,7 +453,6 @@ function addStealthMemo() { const text = document.getElementById('stealth-memo-i
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
-// V5.5 金額表示対応版 マルチプログレスバー計算ロジック
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
     let dMax = calc.todayBudget;
