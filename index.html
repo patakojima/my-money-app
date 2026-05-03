@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.3</title>
+<title>Integrated Ops Terminal v5.5</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -52,12 +52,13 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; }
 .num-btn:active { transform: scale(0.92); background: #e5e5ea; }
 
-/* 3連プログレスバー (SYS_RESOURCE_METRICS) */
-.metric-row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.metric-label { font-size: 9px; font-weight: bold; color: #8e8e93; width: 85px; letter-spacing: -0.5px; }
-.progress-container { background: #e5e5ea; border-radius: 4px; height: 8px; flex: 1; margin-left: 10px; overflow: hidden; }
+/* 3連プログレスバー (SYS_RESOURCE_METRICS) v5.5 金額表示レイアウト */
+.metric-header { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 4px; }
+.metric-label { font-size: 10px; font-weight: bold; color: #8e8e93; letter-spacing: -0.5px; }
+.metric-amt { font-size: 11px; font-weight: bold; color: #1c1c1e; font-family: monospace; margin-left: 6px; }
+.metric-val { font-size: 10px; color: #1c1c1e; font-weight: bold; font-family: monospace; }
+.progress-container { background: #e5e5ea; border-radius: 4px; height: 8px; width: 100%; overflow: hidden; }
 .progress-bar { height: 100%; width: 100%; background: #34C759; transition: width 0.3s ease; }
-.metric-val { font-size: 9px; color: #1c1c1e; font-weight: bold; width: 40px; text-align: right; font-family: monospace; }
 
 .extra-toggle { display: flex; gap: 10px; margin-bottom: 10px; }
 .ext-btn { flex: 1; border: 2px solid #efeff4; background: #fbfbfd; padding: 12px; border-radius: 10px; font-size: 18px; font-weight: 800; color: #8e8e93; text-align: center; }
@@ -74,7 +75,8 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 /* モーダル */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; padding:20px; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
 .modal-content { background:white; width:100%; max-width:400px; border-radius:14px; padding:20px; max-height: 90vh; overflow-y: auto; }
-.action-log-list { max-height: 150px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #eee; }
+/* V5.5 高さとスクロール制限を解除（全行表示） */
+.action-log-list { margin-top: 10px; border-top: 1px solid #eee; }
 .action-log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
 .action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; }
 </style>
@@ -179,25 +181,34 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
         
         <div class="card" style="margin-top:-5px; position:relative; background:#f4f4f5; border:1px solid #e5e5ea;">
             <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS (予算モニタリング)</div>
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;">
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">見積: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93; box-shadow:0 1px 2px rgba(0,0,0,0.05);">↩ UNDO</button>
             </div>
             
-            <div class="metric-row">
-                <div class="metric-label">[DAY_LIMIT]</div>
+            <!-- V5.5 金額表記付きレイアウト -->
+            <div>
+                <div class="metric-header">
+                    <div class="metric-label">[DAY_LIMIT] <span id="amt-day" class="metric-amt">0円</span></div>
+                    <div id="val-day" class="metric-val">100%</div>
+                </div>
                 <div class="progress-container"><div id="bar-day" class="progress-bar"></div></div>
-                <div id="val-day" class="metric-val">100%</div>
             </div>
-            <div class="metric-row">
-                <div class="metric-label">[WEEK_CAP]</div>
+            
+            <div>
+                <div class="metric-header">
+                    <div class="metric-label">[WEEK_CAP] <span id="amt-week" class="metric-amt">0円</span></div>
+                    <div id="val-week" class="metric-val">100%</div>
+                </div>
                 <div class="progress-container"><div id="bar-week" class="progress-bar"></div></div>
-                <div id="val-week" class="metric-val">100%</div>
             </div>
-            <div class="metric-row">
-                <div class="metric-label">[CORE_RES]</div>
+            
+            <div>
+                <div class="metric-header">
+                    <div class="metric-label">[CORE_RES] <span id="amt-core" class="metric-amt">0円</span></div>
+                    <div id="val-core" class="metric-val">100%</div>
+                </div>
                 <div class="progress-container"><div id="bar-core" class="progress-bar"></div></div>
-                <div id="val-core" class="metric-val">100%</div>
             </div>
         </div>
         
@@ -246,6 +257,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
             <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div>
+                <!-- V5.5 全行表示仕様 -->
                 <div id="action-log-list" class="action-log-list"></div>
             </div>
 
@@ -299,7 +311,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.3', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.5', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -392,17 +404,28 @@ function showDetail(id) {
         <input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric">
         <input type="text" id="edit-category" value="${d.category || ''}" placeholder="カテゴリ">
         <input type="text" id="edit-memo" value="${d.memo || ''}" placeholder="メモ">
-        ${d.actionLogText ? `<div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"><strong style="color:#8e8e93; font-size:11px;">■ 明細・覚書 (読取専用)</strong><div style="margin-top:5px; font-size:12px; white-space:pre-wrap; background:#fafafa; padding:8px; border-radius:6px; border:1px solid #e5e5ea;">${d.actionLogText}</div></div>` : ''}
+        <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
+            <strong style="color:#8e8e93; font-size:11px;">■ 明細・覚書 (編集可能)</strong>
+            <textarea id="edit-actionlog" style="margin-top:5px; font-size:12px; background:#fafafa; padding:8px; border-radius:6px; border:1px solid #e5e5ea; width:100%; min-height:80px; resize:vertical; font-family:monospace;">${d.actionLogText || ''}</textarea>
+        </div>
         <button class="main-btn" onclick="updateRecord(${id})">上書き保存</button>
         <button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除する</button>
         <button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`;
     document.getElementById('detail-modal').style.display = 'flex';
 }
+
 function updateRecord(id) {
     const idx = data.findIndex(item => item.id === id); if(idx === -1) return;
-    data[idx].date = document.getElementById('edit-date').value; data[idx].time = document.getElementById('edit-time').value; data[idx].type = document.getElementById('edit-type').value; data[idx].amount = Number(document.getElementById('edit-amount').value); data[idx].category = document.getElementById('edit-category').value; data[idx].memo = document.getElementById('edit-memo').value;
+    data[idx].date = document.getElementById('edit-date').value; 
+    data[idx].time = document.getElementById('edit-time').value; 
+    data[idx].type = document.getElementById('edit-type').value; 
+    data[idx].amount = Number(document.getElementById('edit-amount').value); 
+    data[idx].category = document.getElementById('edit-category').value; 
+    data[idx].memo = document.getElementById('edit-memo').value;
+    data[idx].actionLogText = document.getElementById('edit-actionlog').value; 
     save(); render(); document.getElementById('detail-modal').style.display = 'none';
 }
+
 function deleteRecord(id) { if(!confirm("削除しますか？")) return; data = data.filter(item => item.id !== id); save(); render(); document.getElementById('detail-modal').style.display = 'none'; }
 
 // --- お店データ管理 ---
@@ -431,43 +454,39 @@ function addStealthMemo() { const text = document.getElementById('stealth-memo-i
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
-// v5.3 オーバーロード対応版 マルチプログレスバー計算ロジック
+// V5.5 金額表示対応版 マルチプログレスバー計算ロジック
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
     let dMax = calc.todayBudget;
     let wMax = calc.weekRemaining;
     let cMax = calc.currentBalance;
     
-    const updateBar = (barId, valId, maxVal, currentSpend) => {
+    const updateBar = (barId, valId, amtId, maxVal, currentSpend) => {
         let bar = document.getElementById(barId);
         let val = document.getElementById(valId);
+        let amt = document.getElementById(amtId);
         let remain = maxVal - currentSpend;
         
         if (maxVal <= 0 && currentSpend === 0) {
-            // 予算がゼロでまだ何も使っていない初期状態
-            bar.style.width = '0%';
-            bar.style.background = '#e5e5ea';
-            val.innerText = '0%';
-            val.style.color = '#8e8e93';
+            bar.style.width = '0%'; bar.style.background = '#e5e5ea'; 
+            val.innerText = '0%'; val.style.color = '#8e8e93';
+            amt.innerText = '0円'; amt.style.color = '#8e8e93';
         } else if (remain < 0 || maxVal < 0) {
-            // オーバーロード状態（限界突破）
-            bar.style.width = '100%';
-            bar.style.background = 'repeating-linear-gradient(45deg, #ff3b30, #ff3b30 8px, #ff6b6b 8px, #ff6b6b 16px)';
-            val.innerText = 'OVER';
-            val.style.color = '#ff3b30';
+            bar.style.width = '100%'; bar.style.background = 'repeating-linear-gradient(45deg, #ff3b30, #ff3b30 8px, #ff6b6b 8px, #ff6b6b 16px)'; 
+            val.innerText = 'OVER'; val.style.color = '#ff3b30';
+            amt.innerText = remain.toLocaleString() + '円'; amt.style.color = '#ff3b30';
         } else {
-            // 正常消費状態
             let pct = (remain / maxVal) * 100;
-            bar.style.width = pct + '%';
-            val.innerText = Math.floor(pct) + '%';
-            val.style.color = '#1c1c1e';
+            bar.style.width = pct + '%'; 
+            val.innerText = Math.floor(pct) + '%'; val.style.color = '#1c1c1e';
             bar.style.background = pct > 50 ? '#34C759' : (pct > 20 ? '#FFCC00' : '#FF3B30');
+            amt.innerText = remain.toLocaleString() + '円'; amt.style.color = '#1c1c1e';
         }
     };
 
-    updateBar('bar-day', 'val-day', dMax, mTotal);
-    updateBar('bar-week', 'val-week', wMax, mTotal);
-    updateBar('bar-core', 'val-core', cMax, mTotal);
+    updateBar('bar-day', 'val-day', 'amt-day', dMax, mTotal);
+    updateBar('bar-week', 'val-week', 'amt-week', wMax, mTotal);
+    updateBar('bar-core', 'val-core', 'amt-core', cMax, mTotal);
 }
 
 function updateTDisplay() {
