@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.7</title>
+<title>Integrated Ops Terminal v5.8</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -146,11 +146,11 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">固定費（家賃、光熱費、サブスク等）</div>
-      <!-- V5.7 日付指定対応 -->
+      <!-- V5.8 カレンダー(date)での日付指定に変更 -->
       <div style="display: flex; gap: 8px;">
-        <input type="number" id="fixed-day" placeholder="日" inputmode="numeric" style="flex:1; max-width:60px;">
+        <input type="date" id="fixed-day" style="flex:1.5;">
         <input type="text" id="fixed-name" placeholder="項目名" style="flex:2;">
-        <input type="number" id="fixed-amount" placeholder="金額" inputmode="numeric" style="flex:1;">
+        <input type="number" id="fixed-amount" placeholder="金額" inputmode="numeric" style="flex:1.5;">
       </div>
       <button class="main-btn" onclick="addFixedExpense()">固定費を追加</button>
       <div id="fixed-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
@@ -313,7 +313,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.7', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.8', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -322,13 +322,22 @@ function switchPage(pageId, el) {
     }
 }
 
-// --- FIXED (定期入出金) V5.7 日付対応 ---
+// --- FIXED (定期入出金) V5.8 カレンダー日付対応 ---
 function renderFixed() {
     document.getElementById('base-income').value = fixedData.income || "";
     let exTotal = 0;
     document.getElementById('fixed-list-ui').innerHTML = fixedData.expenses.map((e, idx) => {
         exTotal += e.amount;
-        let dayStr = e.day ? `<span style="display:inline-block; width:35px; color:#8e8e93; font-size:12px; font-family:monospace;">${e.day}日</span>` : '';
+        let displayDay = "";
+        // 2026-05-25 のようなフォーマットなら MM/DD に変換
+        if (e.day && e.day.includes('-')) {
+            const p = e.day.split('-');
+            if(p.length === 3) displayDay = `${p[1]}/${p[2]}`;
+        } else if (e.day) {
+            displayDay = e.day + '日'; // 古い数値データが入っていた場合のフォールバック
+        }
+        
+        let dayStr = displayDay ? `<span style="display:inline-block; width:45px; color:#8e8e93; font-size:12px; font-family:monospace;">${displayDay}</span>` : '';
         return `<div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom:1px dashed #eee;">
             <div>${dayStr}<span>${e.name}</span></div>
             <div><span>${e.amount.toLocaleString()}円</span><button onclick="delFixed(${idx})" style="margin-left:10px; background:#ff3b30; color:white; border:none; border-radius:4px; padding:2px 6px;">✖</button></div>
@@ -336,16 +345,19 @@ function renderFixed() {
     }).join('');
     document.getElementById('monthly-free-money').innerText = ((fixedData.income || 0) - exTotal).toLocaleString() + "円";
 }
+
 function saveFixedData() { fixedData.income = Number(document.getElementById('base-income').value) || 0; localStorage.setItem("fixedData", JSON.stringify(fixedData)); renderFixed(); render(); }
+
 function addFixedExpense() { 
-    const day = document.getElementById('fixed-day').value;
+    const day = document.getElementById('fixed-day').value; // YYYY-MM-DD
     const name = document.getElementById('fixed-name').value; 
     const amount = Number(document.getElementById('fixed-amount').value); 
     if(!name || !amount) return; 
+    
     fixedData.expenses.push({day, name, amount}); 
     
-    // 日付順にソート (未入力は下へ)
-    fixedData.expenses.sort((a, b) => (Number(a.day) || 99) - (Number(b.day) || 99));
+    // 日付順(文字列)でソート
+    fixedData.expenses.sort((a, b) => (a.day || "9999-99-99").localeCompare(b.day || "9999-99-99"));
 
     document.getElementById('fixed-day').value = "";
     document.getElementById('fixed-name').value = ""; 
@@ -536,3 +548,5 @@ function finishProject() {
 </script>
 </body>
 </html>
+
+
