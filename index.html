@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.8</title>
+<title>Integrated Ops Terminal v5.9</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -52,7 +52,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; }
 .num-btn:active { transform: scale(0.92); background: #e5e5ea; }
 
-/* 3連プログレスバー (SYS_RESOURCE_METRICS) v5.6 金額表示レイアウト */
+/* 3連プログレスバー */
 .metric-header { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 4px; }
 .metric-label { font-size: 10px; font-weight: bold; color: #8e8e93; letter-spacing: -0.5px; }
 .metric-amt { font-size: 11px; font-weight: bold; color: #1c1c1e; font-family: monospace; margin-left: 6px; }
@@ -75,7 +75,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 /* モーダル */
 .modal-overlay { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; padding:20px; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
 .modal-content { background:white; width:100%; max-width:400px; border-radius:14px; padding:20px; max-height: 90vh; overflow-y: auto; }
-/* V5.6 高さとスクロール制限を解除（全行表示） */
 .action-log-list { margin-top: 10px; border-top: 1px solid #eee; }
 .action-log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
 .action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; }
@@ -89,7 +88,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 </div>
 
 <div class="content">
-  <!-- メイン画面（日々の入出金） -->
+  <!-- メイン画面 -->
   <div id="page-main" class="page active">
     <h2 id="cycle-title">現在のサイクル実績</h2>
     <div class="card total-box">
@@ -146,7 +145,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">固定費（家賃、光熱費、サブスク等）</div>
-      <!-- V5.8 カレンダー(date)での日付指定に変更 -->
       <div style="display: flex; gap: 8px;">
         <input type="date" id="fixed-day" style="flex:1.5;">
         <input type="text" id="fixed-name" placeholder="項目名" style="flex:2;">
@@ -188,7 +186,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93; box-shadow:0 1px 2px rgba(0,0,0,0.05);">↩ UNDO</button>
             </div>
             
-            <!-- V5.6 金額表記付きレイアウト -->
             <div>
                 <div class="metric-header">
                     <div class="metric-label">[DAY_LIMIT] <span id="amt-day" class="metric-amt">0円</span></div>
@@ -259,7 +256,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
             <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div>
-                <!-- V5.6 全行表示仕様 -->
                 <div id="action-log-list" class="action-log-list"></div>
             </div>
 
@@ -305,6 +301,7 @@ window.onload = () => {
     renderFixed();
     render();
     updateStoreUI();
+    loadTerminalDraft(); // オートセーブの読み込み
 };
 
 function switchPage(pageId, el) {
@@ -313,30 +310,37 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.8', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.9', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
         updateStoreSelect();
+        // オートセーブされたプロジェクトがあれば選択状態を復元
+        if(activeStore) {
+            document.getElementById('active-project-id').value = activeStore.id;
+            document.getElementById('active-terminal-area').style.display = 'block';
+            document.getElementById('label-price-a').innerText = activeStore.a;
+            document.getElementById('label-price-b').innerText = activeStore.b;
+            setExtraMode(currentExtraMode);
+            updateTDisplay();
+        }
         updateProgressBar(); 
     }
 }
 
-// --- FIXED (定期入出金) V5.8 カレンダー日付対応 ---
+// --- FIXED (定期入出金) ---
 function renderFixed() {
     document.getElementById('base-income').value = fixedData.income || "";
     let exTotal = 0;
     document.getElementById('fixed-list-ui').innerHTML = fixedData.expenses.map((e, idx) => {
         exTotal += e.amount;
         let displayDay = "";
-        // 2026-05-25 のようなフォーマットなら MM/DD に変換
         if (e.day && e.day.includes('-')) {
             const p = e.day.split('-');
             if(p.length === 3) displayDay = `${p[1]}/${p[2]}`;
         } else if (e.day) {
-            displayDay = e.day + '日'; // 古い数値データが入っていた場合のフォールバック
+            displayDay = e.day + '日'; 
         }
-        
         let dayStr = displayDay ? `<span style="display:inline-block; width:45px; color:#8e8e93; font-size:12px; font-family:monospace;">${displayDay}</span>` : '';
         return `<div style="display:flex; justify-content:space-between; font-size:14px; padding:8px 0; border-bottom:1px dashed #eee;">
             <div>${dayStr}<span>${e.name}</span></div>
@@ -345,23 +349,15 @@ function renderFixed() {
     }).join('');
     document.getElementById('monthly-free-money').innerText = ((fixedData.income || 0) - exTotal).toLocaleString() + "円";
 }
-
 function saveFixedData() { fixedData.income = Number(document.getElementById('base-income').value) || 0; localStorage.setItem("fixedData", JSON.stringify(fixedData)); renderFixed(); render(); }
-
 function addFixedExpense() { 
-    const day = document.getElementById('fixed-day').value; // YYYY-MM-DD
+    const day = document.getElementById('fixed-day').value; 
     const name = document.getElementById('fixed-name').value; 
     const amount = Number(document.getElementById('fixed-amount').value); 
     if(!name || !amount) return; 
-    
     fixedData.expenses.push({day, name, amount}); 
-    
-    // 日付順(文字列)でソート
     fixedData.expenses.sort((a, b) => (a.day || "9999-99-99").localeCompare(b.day || "9999-99-99"));
-
-    document.getElementById('fixed-day').value = "";
-    document.getElementById('fixed-name').value = ""; 
-    document.getElementById('fixed-amount').value = ""; 
+    document.getElementById('fixed-day').value = ""; document.getElementById('fixed-name').value = ""; document.getElementById('fixed-amount').value = ""; 
     saveFixedData(); 
 }
 function delFixed(idx) { fixedData.expenses.splice(idx, 1); saveFixedData(); }
@@ -471,22 +467,54 @@ function saveStore() {
 }
 function updateStoreUI() { document.getElementById('store-list-ui').innerHTML = stores.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;"><div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div><button onclick="stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets', JSON.stringify(stores));updateStoreUI();" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button></div>`).join(''); }
 
-// --- ターミナル実戦ロジック ---
+// --- ターミナル実戦ロジック (オートセーブ対応) ---
 function updateStoreSelect() { document.getElementById('active-project-id').innerHTML = '<option value="">-- プロジェクト選択 --</option>' + stores.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-function handleProjectSelection() { activeStore = stores.find(s => s.id == document.getElementById('active-project-id').value); if(activeStore) { document.getElementById('active-terminal-area').style.display = 'block'; document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; mDCount = 0; mFCount = 0; mTotal = 0; actionLog = []; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); } }
+
+function handleProjectSelection() { 
+    activeStore = stores.find(s => s.id == document.getElementById('active-project-id').value); 
+    if(activeStore) { 
+        document.getElementById('active-terminal-area').style.display = 'block'; 
+        document.getElementById('label-price-a').innerText = activeStore.a; 
+        document.getElementById('label-price-b').innerText = activeStore.b; 
+        mDCount = 0; mFCount = 0; mTotal = 0; actionLog = []; 
+        updateTDisplay(); 
+        document.getElementById('btn-task-f').classList.add('active-f'); 
+    } else {
+        document.getElementById('active-terminal-area').style.display = 'none';
+        localStorage.removeItem("terminalDraft"); // 何も選んでない時は下書き消去
+    }
+}
+
+// V5.9 オートセーブ関連関数
+function saveTerminalDraft() {
+    if(activeStore) {
+        localStorage.setItem("terminalDraft", JSON.stringify({ activeStore, mDCount, mFCount, mTotal, actionLog, currentExtraMode }));
+    }
+}
+
+function loadTerminalDraft() {
+    const draft = JSON.parse(localStorage.getItem("terminalDraft"));
+    if (draft && draft.activeStore) {
+        activeStore = draft.activeStore;
+        mDCount = draft.mDCount || 0;
+        mFCount = draft.mFCount || 0;
+        mTotal = draft.mTotal || 0;
+        actionLog = draft.actionLog || [];
+        currentExtraMode = draft.currentExtraMode || 'D';
+    }
+}
 
 const getT = () => { const n = new Date(); return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; };
 function commitTaskA() { mDCount++; mTotal += activeStore.a; actionLog.push({ id: Date.now(), time: getT(), cost: activeStore.a, d: 1, f: 0, label: 'Task A(D)' }); updateTDisplay(); logT('TASK A'); }
 function commitTaskB() { mDCount++; mTotal += activeStore.b; actionLog.push({ id: Date.now(), time: getT(), cost: activeStore.b, d: 1, f: 0, label: 'Task B(D)' }); updateTDisplay(); logT('TASK B'); }
 function selectTaskF() { document.getElementById('btn-task-f').classList.add('active-f'); logT('AWAITING NUM'); }
 function commitNum(val) { const c = val * 100; mFCount++; mTotal += c; actionLog.push({ id: Date.now(), time: getT(), cost: c, d: 0, f: 1, label: `Task F(${val})` }); updateTDisplay(); logT('TASK F'); document.getElementById('btn-task-f').classList.add('active-f'); }
-function setExtraMode(mode) { currentExtraMode = mode; document.getElementById('ext-btn-d').className = mode === 'D' ? 'ext-btn active-d' : 'ext-btn'; document.getElementById('ext-btn-f').className = mode === 'F' ? 'ext-btn active-f' : 'ext-btn'; }
+function setExtraMode(mode) { currentExtraMode = mode; document.getElementById('ext-btn-d').className = mode === 'D' ? 'ext-btn active-d' : 'ext-btn'; document.getElementById('ext-btn-f').className = mode === 'F' ? 'ext-btn active-f' : 'ext-btn'; saveTerminalDraft(); }
 function addExtra() { const val = Number(document.getElementById('extra-cost').value); if(!val) return; let isD = currentExtraMode === 'D' ? 1 : 0; let isF = currentExtraMode === 'F' ? 1 : 0; if(isD) mDCount++; if(isF) mFCount++; mTotal += val; actionLog.push({ id: Date.now(), time: getT(), cost: val, d: isD, f: isF, label: `Extra(${currentExtraMode})` }); document.getElementById('extra-cost').value = ""; updateTDisplay(); logT('EXTRA ADDED'); }
 function addStealthMemo() { const text = document.getElementById('stealth-memo-input').value; if(!text) return; actionLog.push({ id: Date.now(), time: getT(), cost: 0, d: 0, f: 0, label: `【メモ】${text}` }); document.getElementById('stealth-memo-input').value = ""; updateTDisplay(); logT('MEMO RECORDED'); }
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
-// V5.5 金額表示対応版 マルチプログレスバー計算ロジック
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
     let dMax = calc.todayBudget;
@@ -530,6 +558,7 @@ function updateTDisplay() {
         const a = actionLog[i]; let costDisplay = a.cost > 0 ? `<span style="font-family:monospace;">+${a.cost}</span>` : '';
         list.innerHTML += `<div class="action-log-item"><div><span style="color:#aaa; margin-right:8px;">${a.time}</span><span style="font-weight:bold; color:#555;">${a.label}</span></div><div style="display:flex; align-items:center; gap:10px;">${costDisplay}<button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     }
+    saveTerminalDraft(); // アクションのたびに自動保存！
 }
 function logT(m) { const el = document.getElementById('log-msg'); el.innerHTML = `STATUS: ${m}<br>SYSTEM_READY`; setTimeout(()=> el.innerHTML = "SYSTEM: STANDBY<br>AWAITING INPUT...", 1500); }
 
@@ -543,7 +572,16 @@ function finishProject() {
         amount: amt, type: 'expense', category: activeStore.name, memo: `D:${mDCount} F:${mFCount}`,
         actionLogText: actionLog.map(a => `${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n')
     });
-    alert("会計完了。記録しました。"); closeCheckout(); document.getElementById('active-terminal-area').style.display = 'none'; document.getElementById('active-project-id').value = ""; switchPage('main', document.querySelector('.tab-item'));
+    alert("会計完了。記録しました。"); 
+    closeCheckout(); 
+    
+    // 会計が終わったら下書きクリア
+    localStorage.removeItem("terminalDraft"); 
+    document.getElementById('active-terminal-area').style.display = 'none'; 
+    document.getElementById('active-project-id').value = ""; 
+    activeStore = null;
+    
+    switchPage('main', document.querySelector('.tab-item'));
 }
 </script>
 </body>
