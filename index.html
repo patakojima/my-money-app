@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v6.0</title>
+<title>Integrated Ops Terminal v6.1</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -310,7 +310,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.0', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.1', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -406,7 +406,6 @@ function addData(customObj = null) {
     save(); render(); document.getElementById("amount").value = ""; document.getElementById("memo").value = ""; document.getElementById("category").value = "";
 }
 
-// V6.0 日時順のソート対応
 function render() {
     const list = document.getElementById("list"); list.innerHTML = "";
     const calc = calculateCurrentBudget();
@@ -414,10 +413,8 @@ function render() {
     
     data.filter(d => d.date >= calc.startStr && d.date < calc.nextPayStr)
         .sort((a, b) => {
-            // 指定した日付と時間（文字列）を繋げて比較（例: "2026-05-04 21:00"）
             let dtA = (a.date || "") + " " + (a.time || "");
             let dtB = (b.date || "") + " " + (b.time || "");
-            // 降順（最新の日時が一番上、古い日時が一番下）
             return dtB.localeCompare(dtA);
         })
         .forEach(d => {
@@ -464,16 +461,62 @@ function updateRecord(id) {
 
 function deleteRecord(id) { if(!confirm("削除しますか？")) return; data = data.filter(item => item.id !== id); save(); render(); document.getElementById('detail-modal').style.display = 'none'; }
 
-// --- お店データ管理 ---
-function saveStore() {
-    const id = document.getElementById('edit-store-id').value; const name = document.getElementById('store-name').value;
-    const a = Number(document.getElementById('price-a').value); const b = Number(document.getElementById('price-b').value);
-    if(!name) return;
-    if(id) { const idx = stores.findIndex(s => s.id == id); stores[idx] = { id: Number(id), name, a, b }; } else { stores.push({ id: Date.now(), name, a, b }); }
-    localStorage.setItem("storePresets", JSON.stringify(stores)); updateStoreUI();
-    document.getElementById('edit-store-id').value = ""; document.getElementById('store-name').value = ""; document.getElementById('price-a').value = ""; document.getElementById('price-b').value = "";
+// --- お店データ管理 (V6.1 編集ボタン追加) ---
+function editStoreUI(id) {
+    const s = stores.find(x => x.id == id);
+    if(!s) return;
+    document.getElementById('edit-store-id').value = s.id;
+    document.getElementById('store-name').value = s.name;
+    document.getElementById('price-a').value = s.a;
+    document.getElementById('price-b').value = s.b;
+    
+    const btn = document.getElementById('store-save-btn');
+    btn.innerText = "上書き保存";
+    btn.style.background = "#007aff";
+    
+    // スクロールで上に戻す（iPhone向け）
+    window.scrollTo({top: 0, behavior: 'smooth'});
 }
-function updateStoreUI() { document.getElementById('store-list-ui').innerHTML = stores.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;"><div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div><button onclick="stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets', JSON.stringify(stores));updateStoreUI();" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button></div>`).join(''); }
+
+function saveStore() {
+    const id = document.getElementById('edit-store-id').value; 
+    const name = document.getElementById('store-name').value;
+    const a = Number(document.getElementById('price-a').value); 
+    const b = Number(document.getElementById('price-b').value);
+    if(!name) return;
+    
+    if(id) { 
+        const idx = stores.findIndex(s => s.id == id); 
+        stores[idx] = { id: Number(id), name, a, b }; 
+    } else { 
+        stores.push({ id: Date.now(), name, a, b }); 
+    }
+    localStorage.setItem("storePresets", JSON.stringify(stores)); 
+    updateStoreUI();
+    updateStoreSelect(); // ターミナルのドロップダウンも更新
+    
+    // リセット
+    document.getElementById('edit-store-id').value = ""; 
+    document.getElementById('store-name').value = ""; 
+    document.getElementById('price-a').value = ""; 
+    document.getElementById('price-b').value = "";
+    
+    const btn = document.getElementById('store-save-btn');
+    btn.innerText = "プリセット保存";
+    btn.style.background = "#666";
+}
+
+function updateStoreUI() { 
+    document.getElementById('store-list-ui').innerHTML = stores.map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;">
+            <div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div>
+            <div>
+                <button onclick="editStoreUI(${s.id})" style="background:#007aff; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-right:5px;">編集</button>
+                <button onclick="if(confirm('削除しますか？')){ stores=stores.filter(x=>x.id!=${s.id}); localStorage.setItem('storePresets', JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); }" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button>
+            </div>
+        </div>
+    `).join(''); 
+}
 
 // --- ターミナル実戦ロジック ---
 function updateStoreSelect() { document.getElementById('active-project-id').innerHTML = '<option value="">-- プロジェクト選択 --</option>' + stores.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
