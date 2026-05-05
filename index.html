@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v5.9</title>
+<title>Integrated Ops Terminal v6.0</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -301,7 +301,7 @@ window.onload = () => {
     renderFixed();
     render();
     updateStoreUI();
-    loadTerminalDraft(); // オートセーブの読み込み
+    loadTerminalDraft();
 };
 
 function switchPage(pageId, el) {
@@ -310,12 +310,11 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V5.9', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.0', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
         updateStoreSelect();
-        // オートセーブされたプロジェクトがあれば選択状態を復元
         if(activeStore) {
             document.getElementById('active-project-id').value = activeStore.id;
             document.getElementById('active-terminal-area').style.display = 'block';
@@ -407,12 +406,21 @@ function addData(customObj = null) {
     save(); render(); document.getElementById("amount").value = ""; document.getElementById("memo").value = ""; document.getElementById("category").value = "";
 }
 
+// V6.0 日時順のソート対応
 function render() {
     const list = document.getElementById("list"); list.innerHTML = "";
     const calc = calculateCurrentBudget();
     document.getElementById("cycle-title").innerText = `現在のサイクル実績 (${calc.cycleText})`;
+    
     data.filter(d => d.date >= calc.startStr && d.date < calc.nextPayStr)
-        .sort((a,b) => b.timestamp - a.timestamp).forEach(d => {
+        .sort((a, b) => {
+            // 指定した日付と時間（文字列）を繋げて比較（例: "2026-05-04 21:00"）
+            let dtA = (a.date || "") + " " + (a.time || "");
+            let dtB = (b.date || "") + " " + (b.time || "");
+            // 降順（最新の日時が一番上、古い日時が一番下）
+            return dtB.localeCompare(dtA);
+        })
+        .forEach(d => {
         const div = document.createElement("div"); div.className = "item " + d.type;
         div.innerHTML = `<div><small style="color:#999; display:block;">${d.date} ${d.time}</small>${d.category || '未分類'} <small style="color:#666;">${d.memo ? '('+d.memo+')' : ''}</small></div><div>${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`;
         div.onclick = () => showDetail(d.id);
@@ -467,7 +475,7 @@ function saveStore() {
 }
 function updateStoreUI() { document.getElementById('store-list-ui').innerHTML = stores.map(s => `<div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;"><div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div><button onclick="stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets', JSON.stringify(stores));updateStoreUI();" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button></div>`).join(''); }
 
-// --- ターミナル実戦ロジック (オートセーブ対応) ---
+// --- ターミナル実戦ロジック ---
 function updateStoreSelect() { document.getElementById('active-project-id').innerHTML = '<option value="">-- プロジェクト選択 --</option>' + stores.map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
 
 function handleProjectSelection() { 
@@ -481,11 +489,10 @@ function handleProjectSelection() {
         document.getElementById('btn-task-f').classList.add('active-f'); 
     } else {
         document.getElementById('active-terminal-area').style.display = 'none';
-        localStorage.removeItem("terminalDraft"); // 何も選んでない時は下書き消去
+        localStorage.removeItem("terminalDraft"); 
     }
 }
 
-// V5.9 オートセーブ関連関数
 function saveTerminalDraft() {
     if(activeStore) {
         localStorage.setItem("terminalDraft", JSON.stringify({ activeStore, mDCount, mFCount, mTotal, actionLog, currentExtraMode }));
@@ -558,7 +565,7 @@ function updateTDisplay() {
         const a = actionLog[i]; let costDisplay = a.cost > 0 ? `<span style="font-family:monospace;">+${a.cost}</span>` : '';
         list.innerHTML += `<div class="action-log-item"><div><span style="color:#aaa; margin-right:8px;">${a.time}</span><span style="font-weight:bold; color:#555;">${a.label}</span></div><div style="display:flex; align-items:center; gap:10px;">${costDisplay}<button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     }
-    saveTerminalDraft(); // アクションのたびに自動保存！
+    saveTerminalDraft(); 
 }
 function logT(m) { const el = document.getElementById('log-msg'); el.innerHTML = `STATUS: ${m}<br>SYSTEM_READY`; setTimeout(()=> el.innerHTML = "SYSTEM: STANDBY<br>AWAITING INPUT...", 1500); }
 
@@ -574,13 +581,10 @@ function finishProject() {
     });
     alert("会計完了。記録しました。"); 
     closeCheckout(); 
-    
-    // 会計が終わったら下書きクリア
     localStorage.removeItem("terminalDraft"); 
     document.getElementById('active-terminal-area').style.display = 'none'; 
     document.getElementById('active-project-id').value = ""; 
     activeStore = null;
-    
     switchPage('main', document.querySelector('.tab-item'));
 }
 </script>
