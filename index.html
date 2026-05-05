@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v6.3</title>
+<title>Integrated Ops Terminal v6.4</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -103,6 +103,32 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <div>今週あと使える<span class="budget-val" id="weekRemaining">0円</span></div>
     </div>
 
+    <!-- V6.4 メイン画面用 SYS_RESOURCE_METRICS -->
+    <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom: 18px;">
+        <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS (予算モニタリング)</div>
+        <div>
+            <div class="metric-header" style="margin-top:5px;">
+                <div class="metric-label">[DAY_LIMIT] <span id="main-amt-day" class="metric-amt">0円</span></div>
+                <div id="main-val-day" class="metric-val">100%</div>
+            </div>
+            <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
+        </div>
+        <div>
+            <div class="metric-header">
+                <div class="metric-label">[WEEK_CAP] <span id="main-amt-week" class="metric-amt">0円</span></div>
+                <div id="main-val-week" class="metric-val">100%</div>
+            </div>
+            <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
+        </div>
+        <div>
+            <div class="metric-header">
+                <div class="metric-label">[CORE_RES] <span id="main-amt-core" class="metric-amt">0円</span></div>
+                <div id="main-val-core" class="metric-val">100%</div>
+            </div>
+            <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
+        </div>
+    </div>
+
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">手動記録</div>
       <div style="display:flex; gap:10px;">
@@ -124,7 +150,6 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <input type="hidden" id="edit-store-id">
       <input type="text" id="store-name" placeholder="店名 / Project Name">
       
-      <!-- V6.3: 入力ボックスの上に明示的なラベルを追加 -->
       <div style="display: flex; gap: 8px; margin-top: 8px;">
         <div style="flex: 1;">
             <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:2px; margin-left:4px;">[Task A] D1単価</div>
@@ -322,7 +347,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.3', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.4', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -438,7 +463,49 @@ function render() {
     document.getElementById("total").innerText = calc.currentBalance.toLocaleString() + "円";
     document.getElementById("todayBudget").innerText = (calc.todayBudget > 0 ? calc.todayBudget.toLocaleString() : 0) + "円";
     document.getElementById("weekRemaining").innerText = (calc.weekRemaining > 0 ? calc.weekRemaining.toLocaleString() : 0) + "円";
+    
+    // V6.4 メイン画面のプログレスバー更新呼び出し
+    updateMainProgressBar(calc);
 }
+
+// V6.4: メイン画面用 プログレスバー計算関数
+function updateMainProgressBar(calc) {
+    let cBase = calc.freeMoney || 1; 
+    let cycleStart = new Date(calc.startStr).getTime();
+    let cycleNext = new Date(calc.nextPayStr).getTime();
+    let totalDays = Math.ceil((cycleNext - cycleStart) / (1000 * 60 * 60 * 24)) || 30;
+    
+    let dBase = cBase / totalDays; 
+    let wBase = dBase * 7;         
+    
+    const updateBar = (barId, valId, amtId, baseVal, currentVal) => {
+        let bar = document.getElementById(barId);
+        let val = document.getElementById(valId);
+        let amt = document.getElementById(amtId);
+        
+        if (baseVal <= 0) {
+            bar.style.width = '0%'; bar.style.background = '#e5e5ea'; 
+            val.innerText = '0%'; val.style.color = '#8e8e93';
+            amt.innerText = '0円'; amt.style.color = '#8e8e93';
+        } else if (currentVal < 0) {
+            bar.style.width = '100%'; bar.style.background = 'repeating-linear-gradient(45deg, #ff3b30, #ff3b30 8px, #ff6b6b 8px, #ff6b6b 16px)'; 
+            val.innerText = 'OVER'; val.style.color = '#ff3b30';
+            amt.innerText = currentVal.toLocaleString() + '円'; amt.style.color = '#ff3b30';
+        } else {
+            let pct = (currentVal / baseVal) * 100;
+            if(pct > 100) pct = 100; // 余力がある場合は100%でカンスト表示
+            bar.style.width = pct + '%'; 
+            val.innerText = Math.floor(pct) + '%'; val.style.color = '#1c1c1e';
+            bar.style.background = pct > 50 ? '#34C759' : (pct > 20 ? '#FFCC00' : '#FF3B30');
+            amt.innerText = currentVal.toLocaleString() + '円'; amt.style.color = '#1c1c1e';
+        }
+    };
+
+    updateBar('main-bar-day', 'main-val-day', 'main-amt-day', dBase, calc.todayBudget);
+    updateBar('main-bar-week', 'main-val-week', 'main-amt-week', wBase, calc.weekRemaining);
+    updateBar('main-bar-core', 'main-val-core', 'main-amt-core', cBase, calc.currentBalance);
+}
+
 
 function showDetail(id) {
     const d = data.find(item => item.id === id); if(!d) return;
