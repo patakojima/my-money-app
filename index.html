@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v6.1</title>
+<title>Integrated Ops Terminal v6.2</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -124,10 +124,15 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <input type="hidden" id="edit-store-id">
       <input type="text" id="store-name" placeholder="店名 / Project Name">
       <div style="display: flex; gap: 8px;">
-        <input type="number" id="price-a" placeholder="D単価" inputmode="numeric">
-        <input type="number" id="price-b" placeholder="F単価" inputmode="numeric">
+        <!-- V6.2: プレースホルダーをD1/D2に変更 -->
+        <input type="number" id="price-a" placeholder="D1単価(Task A)" inputmode="numeric">
+        <input type="number" id="price-b" placeholder="D2単価(Task B)" inputmode="numeric">
       </div>
-      <button id="store-save-btn" class="main-btn" style="background:#666;" onclick="saveStore()">プリセット保存</button>
+      <!-- V6.2: 新規追加/キャンセルボタンの切り替え -->
+      <div style="display: flex; gap: 8px; margin-top: 10px;">
+          <button id="store-save-btn" class="main-btn" style="background:#666; margin-top:0;" onclick="saveStore()">新規追加</button>
+          <button id="store-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditStore()">キャンセル</button>
+      </div>
       <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
     </div>
 
@@ -310,7 +315,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.1', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.2', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -461,7 +466,7 @@ function updateRecord(id) {
 
 function deleteRecord(id) { if(!confirm("削除しますか？")) return; data = data.filter(item => item.id !== id); save(); render(); document.getElementById('detail-modal').style.display = 'none'; }
 
-// --- お店データ管理 (V6.1 編集ボタン追加) ---
+// --- お店データ管理 (V6.2 バグ修正版) ---
 function editStoreUI(id) {
     const s = stores.find(x => x.id == id);
     if(!s) return;
@@ -474,8 +479,24 @@ function editStoreUI(id) {
     btn.innerText = "上書き保存";
     btn.style.background = "#007aff";
     
-    // スクロールで上に戻す（iPhone向け）
+    // キャンセルボタンを表示
+    document.getElementById('store-cancel-btn').style.display = "block";
+    
     window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// V6.2: 編集中状態から抜け出して「新規追加」に戻す機能
+function cancelEditStore() {
+    document.getElementById('edit-store-id').value = ""; 
+    document.getElementById('store-name').value = ""; 
+    document.getElementById('price-a').value = ""; 
+    document.getElementById('price-b').value = "";
+    
+    const btn = document.getElementById('store-save-btn');
+    btn.innerText = "新規追加";
+    btn.style.background = "#666";
+    
+    document.getElementById('store-cancel-btn').style.display = "none";
 }
 
 function saveStore() {
@@ -493,23 +514,17 @@ function saveStore() {
     }
     localStorage.setItem("storePresets", JSON.stringify(stores)); 
     updateStoreUI();
-    updateStoreSelect(); // ターミナルのドロップダウンも更新
+    updateStoreSelect(); 
     
-    // リセット
-    document.getElementById('edit-store-id').value = ""; 
-    document.getElementById('store-name').value = ""; 
-    document.getElementById('price-a').value = ""; 
-    document.getElementById('price-b').value = "";
-    
-    const btn = document.getElementById('store-save-btn');
-    btn.innerText = "プリセット保存";
-    btn.style.background = "#666";
+    // 保存後は自動的にリセット（キャンセルと同じ処理）
+    cancelEditStore();
 }
 
 function updateStoreUI() { 
+    // V6.2: D単価、F単価の表記を D1, D2 に変更
     document.getElementById('store-list-ui').innerHTML = stores.map(s => `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;">
-            <div><b>${s.name}</b> <small>(D:${s.a} F:${s.b})</small></div>
+            <div><b>${s.name}</b> <small>(D1:${s.a} D2:${s.b})</small></div>
             <div>
                 <button onclick="editStoreUI(${s.id})" style="background:#007aff; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px; margin-right:5px;">編集</button>
                 <button onclick="if(confirm('削除しますか？')){ stores=stores.filter(x=>x.id!=${s.id}); localStorage.setItem('storePresets', JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); }" style="background:#ff3b30; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:10px;">削除</button>
@@ -628,6 +643,10 @@ function finishProject() {
     document.getElementById('active-terminal-area').style.display = 'none'; 
     document.getElementById('active-project-id').value = ""; 
     activeStore = null;
+    
+    // キャンセルボタン（フォームリセット）を呼んでおく
+    cancelEditStore();
+    
     switchPage('main', document.querySelector('.tab-item'));
 }
 </script>
