@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v6.2</title>
+<title>Integrated Ops Terminal v6.3</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -123,12 +123,19 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">PROJECT_REGISTRY_MOD (店舗プリセット)</div>
       <input type="hidden" id="edit-store-id">
       <input type="text" id="store-name" placeholder="店名 / Project Name">
-      <div style="display: flex; gap: 8px;">
-        <!-- V6.2: プレースホルダーをD1/D2に変更 -->
-        <input type="number" id="price-a" placeholder="D1単価(Task A)" inputmode="numeric">
-        <input type="number" id="price-b" placeholder="D2単価(Task B)" inputmode="numeric">
+      
+      <!-- V6.3: 入力ボックスの上に明示的なラベルを追加 -->
+      <div style="display: flex; gap: 8px; margin-top: 8px;">
+        <div style="flex: 1;">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:2px; margin-left:4px;">[Task A] D1単価</div>
+            <input type="number" id="price-a" placeholder="金額" inputmode="numeric" style="margin-top:0;">
+        </div>
+        <div style="flex: 1;">
+            <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:2px; margin-left:4px;">[Task B] D2単価</div>
+            <input type="number" id="price-b" placeholder="金額" inputmode="numeric" style="margin-top:0;">
+        </div>
       </div>
-      <!-- V6.2: 新規追加/キャンセルボタンの切り替え -->
+      
       <div style="display: flex; gap: 8px; margin-top: 10px;">
           <button id="store-save-btn" class="main-btn" style="background:#666; margin-top:0;" onclick="saveStore()">新規追加</button>
           <button id="store-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditStore()">キャンセル</button>
@@ -315,7 +322,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.2', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.3', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -466,7 +473,7 @@ function updateRecord(id) {
 
 function deleteRecord(id) { if(!confirm("削除しますか？")) return; data = data.filter(item => item.id !== id); save(); render(); document.getElementById('detail-modal').style.display = 'none'; }
 
-// --- お店データ管理 (V6.2 バグ修正版) ---
+// --- お店データ管理 ---
 function editStoreUI(id) {
     const s = stores.find(x => x.id == id);
     if(!s) return;
@@ -479,13 +486,10 @@ function editStoreUI(id) {
     btn.innerText = "上書き保存";
     btn.style.background = "#007aff";
     
-    // キャンセルボタンを表示
     document.getElementById('store-cancel-btn').style.display = "block";
-    
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
-// V6.2: 編集中状態から抜け出して「新規追加」に戻す機能
 function cancelEditStore() {
     document.getElementById('edit-store-id').value = ""; 
     document.getElementById('store-name').value = ""; 
@@ -495,7 +499,6 @@ function cancelEditStore() {
     const btn = document.getElementById('store-save-btn');
     btn.innerText = "新規追加";
     btn.style.background = "#666";
-    
     document.getElementById('store-cancel-btn').style.display = "none";
 }
 
@@ -515,13 +518,10 @@ function saveStore() {
     localStorage.setItem("storePresets", JSON.stringify(stores)); 
     updateStoreUI();
     updateStoreSelect(); 
-    
-    // 保存後は自動的にリセット（キャンセルと同じ処理）
     cancelEditStore();
 }
 
 function updateStoreUI() { 
-    // V6.2: D単価、F単価の表記を D1, D2 に変更
     document.getElementById('store-list-ui').innerHTML = stores.map(s => `
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:8px 0; border-bottom:1px solid #f9f9f9;">
             <div><b>${s.name}</b> <small>(D1:${s.a} D2:${s.b})</small></div>
@@ -643,10 +643,7 @@ function finishProject() {
     document.getElementById('active-terminal-area').style.display = 'none'; 
     document.getElementById('active-project-id').value = ""; 
     activeStore = null;
-    
-    // キャンセルボタン（フォームリセット）を呼んでおく
     cancelEditStore();
-    
     switchPage('main', document.querySelector('.tab-item'));
 }
 </script>
