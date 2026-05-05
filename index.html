@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v6.4</title>
+<title>Integrated Ops Terminal v6.5</title>
 <style>
 /* 共通設定 */
 * { box-sizing: border-box; }
@@ -103,7 +103,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
       <div>今週あと使える<span class="budget-val" id="weekRemaining">0円</span></div>
     </div>
 
-    <!-- V6.4 メイン画面用 SYS_RESOURCE_METRICS -->
+    <!-- V6.5 完全連動版 メイン画面用 SYS_RESOURCE_METRICS -->
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom: 18px;">
         <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS (予算モニタリング)</div>
         <div>
@@ -332,6 +332,7 @@ let actionLog = [];
 let currentExtraMode = 'D'; 
 
 const formatStr = (dateObj) => `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+const parseDate = (str) => { const p = str.split('-'); return new Date(p[0], p[1]-1, p[2]); };
 
 window.onload = () => {
     document.getElementById("date").value = formatStr(new Date());
@@ -347,7 +348,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
     el.classList.add('active');
     
-    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.4', 'fixed': 'FIXED_MANAGER' };
+    const titles = { 'main': 'MAIN_DASHBOARD', 'terminal': 'TERMINAL_OP_V6.5', 'fixed': 'FIXED_MANAGER' };
     document.getElementById('display-title').innerText = titles[pageId];
     
     if(pageId === 'terminal') {
@@ -413,25 +414,71 @@ function getCycle(dObj = new Date()) {
     return { startStr: formatStr(startD), endStr: formatStr(endD), nextPayStr: formatStr(new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1)), nextPayObj: new Date(endD.getFullYear(), endD.getMonth(), endD.getDate() + 1) };
 }
 
+// V6.5 超・精密 予算ロジック
 function calculateCurrentBudget() {
     const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = formatStr(today);
     const cycle = getCycle(today);
     let freeMoney = (fixedData.income || 0) - fixedData.expenses.reduce((sum, e) => sum + e.amount, 0);
+    
     let cycleExpense = 0; let cycleIncome = 0;
+    let todaySpent = 0; let todayInc = 0;
+    let weekSpent = 0; let weekInc = 0;
+    
+    // 週の開始日（月曜日）を計算
+    let dayOfWeek = today.getDay(); 
+    let daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    let startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - daysSinceMonday);
+    let startOfWeekStr = formatStr(startOfWeek);
+
     data.forEach(d => {
         if(d.date >= cycle.startStr && d.date < cycle.nextPayStr) {
-            if(d.type === 'expense') cycleExpense += d.amount;
-            if(d.type === 'income') cycleIncome += d.amount;
+            if(d.type === 'expense') {
+                cycleExpense += d.amount;
+                if(d.date === todayStr) todaySpent += d.amount;
+                if(d.date >= startOfWeekStr && d.date <= todayStr) weekSpent += d.amount;
+            }
+            if(d.type === 'income') {
+                cycleIncome += d.amount;
+                if(d.date === todayStr) todayInc += d.amount;
+                if(d.date >= startOfWeekStr && d.date <= todayStr) weekInc += d.amount;
+            }
         }
     });
+    
     let currentBalance = freeMoney + cycleIncome - cycleExpense;
+    
+    // 【DAY計算】 今日のスタート時点の残高と予算を出す
+    let startOfDayBalance = currentBalance + todaySpent - todayInc;
     const diffTime = cycle.nextPayObj.getTime() - today.getTime();
     const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-    let todayBudget = remainingDays > 0 ? Math.floor(currentBalance / remainingDays) : currentBalance;
-    const dayOfWeek = today.getDay(); 
-    const daysToSunday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek); 
-    let weekRemaining = todayBudget * daysToSunday;
-    return { currentBalance, todayBudget, weekRemaining, freeMoney, cycleText: `${cycle.startStr.slice(5)} 〜 ${cycle.endStr.slice(5)}`, startStr: cycle.startStr, nextPayStr: cycle.nextPayStr };
+    let budgetForToday = remainingDays > 0 ? Math.floor(startOfDayBalance / remainingDays) : startOfDayBalance;
+    let todayBudget = budgetForToday + todayInc - todaySpent; 
+    
+    // 【WEEK計算】 今週のスタート時点（月曜）の残高と予算を出す
+    let actualStartOfWeekStr = startOfWeekStr < cycle.startStr ? cycle.startStr : startOfWeekStr;
+    let startOfWeekDate = parseDate(actualStartOfWeekStr);
+    let diffTimeWeek = cycle.nextPayObj.getTime() - startOfWeekDate.getTime();
+    let remainingDaysAtWeekStart = Math.ceil(diffTimeWeek / (1000 * 60 * 60 * 24));
+    
+    let startOfWeekBalance = currentBalance + weekSpent - weekInc;
+    let budgetPerDayAtWeekStart = remainingDaysAtWeekStart > 0 ? Math.floor(startOfWeekBalance / remainingDaysAtWeekStart) : startOfWeekBalance;
+    
+    let daysInWeekForCycle = 7;
+    if (startOfWeekStr < cycle.startStr) {
+        let diff = (parseDate(cycle.startStr).getTime() - parseDate(startOfWeekStr).getTime()) / (1000*60*60*24);
+        daysInWeekForCycle = 7 - Math.round(diff);
+    }
+    let budgetForWeek = budgetPerDayAtWeekStart * daysInWeekForCycle;
+    let weekRemaining = budgetForWeek + weekInc - weekSpent;
+
+    return { 
+        currentBalance, todayBudget, weekRemaining, freeMoney, 
+        budgetForToday, budgetForWeek, 
+        cycleText: `${cycle.startStr.slice(5)} 〜 ${cycle.endStr.slice(5)}`, 
+        startStr: cycle.startStr, nextPayStr: cycle.nextPayStr 
+    };
 }
 
 // --- 家計簿コア機能 ---
@@ -464,26 +511,18 @@ function render() {
     document.getElementById("todayBudget").innerText = (calc.todayBudget > 0 ? calc.todayBudget.toLocaleString() : 0) + "円";
     document.getElementById("weekRemaining").innerText = (calc.weekRemaining > 0 ? calc.weekRemaining.toLocaleString() : 0) + "円";
     
-    // V6.4 メイン画面のプログレスバー更新呼び出し
+    // メイン画面のプログレスバー更新
     updateMainProgressBar(calc);
 }
 
-// V6.4: メイン画面用 プログレスバー計算関数
+// V6.5: メイン画面用 プログレスバー計算関数
 function updateMainProgressBar(calc) {
-    let cBase = calc.freeMoney || 1; 
-    let cycleStart = new Date(calc.startStr).getTime();
-    let cycleNext = new Date(calc.nextPayStr).getTime();
-    let totalDays = Math.ceil((cycleNext - cycleStart) / (1000 * 60 * 60 * 24)) || 30;
-    
-    let dBase = cBase / totalDays; 
-    let wBase = dBase * 7;         
-    
-    const updateBar = (barId, valId, amtId, baseVal, currentVal) => {
+    const updateBar = (barId, valId, amtId, maxVal, currentVal) => {
         let bar = document.getElementById(barId);
         let val = document.getElementById(valId);
         let amt = document.getElementById(amtId);
         
-        if (baseVal <= 0) {
+        if (maxVal <= 0 && currentVal <= 0) {
             bar.style.width = '0%'; bar.style.background = '#e5e5ea'; 
             val.innerText = '0%'; val.style.color = '#8e8e93';
             amt.innerText = '0円'; amt.style.color = '#8e8e93';
@@ -492,20 +531,18 @@ function updateMainProgressBar(calc) {
             val.innerText = 'OVER'; val.style.color = '#ff3b30';
             amt.innerText = currentVal.toLocaleString() + '円'; amt.style.color = '#ff3b30';
         } else {
-            let pct = (currentVal / baseVal) * 100;
-            if(pct > 100) pct = 100; // 余力がある場合は100%でカンスト表示
+            let pct = maxVal > 0 ? (currentVal / maxVal) * 100 : 100;
+            if(pct > 100) pct = 100; 
             bar.style.width = pct + '%'; 
             val.innerText = Math.floor(pct) + '%'; val.style.color = '#1c1c1e';
             bar.style.background = pct > 50 ? '#34C759' : (pct > 20 ? '#FFCC00' : '#FF3B30');
             amt.innerText = currentVal.toLocaleString() + '円'; amt.style.color = '#1c1c1e';
         }
     };
-
-    updateBar('main-bar-day', 'main-val-day', 'main-amt-day', dBase, calc.todayBudget);
-    updateBar('main-bar-week', 'main-val-week', 'main-amt-week', wBase, calc.weekRemaining);
-    updateBar('main-bar-core', 'main-val-core', 'main-amt-core', cBase, calc.currentBalance);
+    updateBar('main-bar-day', 'main-val-day', 'main-amt-day', calc.budgetForToday, calc.todayBudget);
+    updateBar('main-bar-week', 'main-val-week', 'main-amt-week', calc.budgetForWeek, calc.weekRemaining);
+    updateBar('main-bar-core', 'main-val-core', 'main-amt-core', calc.freeMoney, calc.currentBalance);
 }
-
 
 function showDetail(id) {
     const d = data.find(item => item.id === id); if(!d) return;
@@ -647,38 +684,37 @@ function addStealthMemo() { const text = document.getElementById('stealth-memo-i
 function undoLast() { const l = actionLog.pop(); if(!l) return; mDCount -= l.d; mFCount -= l.f; mTotal -= l.cost; updateTDisplay(); logT("UNDO"); }
 function removeActionById(id) { const i = actionLog.findIndex(a => a.id === id); if (i > -1) { const t = actionLog[i]; actionLog.splice(i, 1); mDCount -= t.d; mFCount -= t.f; mTotal -= t.cost; updateTDisplay(); } }
 
+// V6.5: ターミナル画面用 プログレスバー（メインと完全同期しつつ、mTotalをリアルタイムに引く）
 function updateProgressBar() {
     let calc = calculateCurrentBudget();
-    let dMax = calc.todayBudget;
-    let wMax = calc.weekRemaining;
-    let cMax = calc.currentBalance;
     
-    const updateBar = (barId, valId, amtId, maxVal, currentSpend) => {
+    const updateBar = (barId, valId, amtId, baseMax, currentRemain, currentSpend) => {
         let bar = document.getElementById(barId);
         let val = document.getElementById(valId);
         let amt = document.getElementById(amtId);
-        let remain = maxVal - currentSpend;
+        let finalRemain = currentRemain - currentSpend;
         
-        if (maxVal <= 0 && currentSpend === 0) {
+        if (baseMax <= 0 && finalRemain <= 0) {
             bar.style.width = '0%'; bar.style.background = '#e5e5ea'; 
             val.innerText = '0%'; val.style.color = '#8e8e93';
             amt.innerText = '0円'; amt.style.color = '#8e8e93';
-        } else if (remain < 0 || maxVal < 0) {
+        } else if (finalRemain < 0) {
             bar.style.width = '100%'; bar.style.background = 'repeating-linear-gradient(45deg, #ff3b30, #ff3b30 8px, #ff6b6b 8px, #ff6b6b 16px)'; 
             val.innerText = 'OVER'; val.style.color = '#ff3b30';
-            amt.innerText = remain.toLocaleString() + '円'; amt.style.color = '#ff3b30';
+            amt.innerText = finalRemain.toLocaleString() + '円'; amt.style.color = '#ff3b30';
         } else {
-            let pct = (remain / maxVal) * 100;
+            let pct = baseMax > 0 ? (finalRemain / baseMax) * 100 : 100;
+            if(pct > 100) pct = 100; 
             bar.style.width = pct + '%'; 
             val.innerText = Math.floor(pct) + '%'; val.style.color = '#1c1c1e';
             bar.style.background = pct > 50 ? '#34C759' : (pct > 20 ? '#FFCC00' : '#FF3B30');
-            amt.innerText = remain.toLocaleString() + '円'; amt.style.color = '#1c1c1e';
+            amt.innerText = finalRemain.toLocaleString() + '円'; amt.style.color = '#1c1c1e';
         }
     };
 
-    updateBar('bar-day', 'val-day', 'amt-day', dMax, mTotal);
-    updateBar('bar-week', 'val-week', 'amt-week', wMax, mTotal);
-    updateBar('bar-core', 'val-core', 'amt-core', cMax, mTotal);
+    updateBar('bar-day', 'val-day', 'amt-day', calc.budgetForToday, calc.todayBudget, mTotal);
+    updateBar('bar-week', 'val-week', 'amt-week', calc.budgetForWeek, calc.weekRemaining, mTotal);
+    updateBar('bar-core', 'val-core', 'amt-core', calc.freeMoney, calc.currentBalance, mTotal);
 }
 
 function updateTDisplay() {
