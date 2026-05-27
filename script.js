@@ -29,30 +29,11 @@ function switchPage(pageId, el) {
     }
 }
 
-// --- 最終日変更機能 ---
-function showCycleEditModal() {
-    let c = getCycle(new Date()); 
-    document.getElementById('cycle-edit-key').value = c.cycleKey;
-    document.getElementById('cycle-edit-date').value = c.endStr;
-    document.getElementById('cycle-edit-modal').style.display = 'flex';
-}
+function showCycleEditModal() { let c = getCycle(new Date()); document.getElementById('cycle-edit-key').value = c.cycleKey; document.getElementById('cycle-edit-date').value = c.endStr; document.getElementById('cycle-edit-modal').style.display = 'flex'; }
 function closeCycleEditModal() { document.getElementById('cycle-edit-modal').style.display = 'none'; }
-function saveCycleEnd() {
-    let key = document.getElementById('cycle-edit-key').value;
-    let dStr = document.getElementById('cycle-edit-date').value;
-    if(!dStr) return;
-    customEnds[key] = dStr;
-    localStorage.setItem("customCycleEnds", JSON.stringify(customEnds));
-    closeCycleEditModal(); render();
-}
-function resetCycleEnd() {
-    let key = document.getElementById('cycle-edit-key').value;
-    delete customEnds[key];
-    localStorage.setItem("customCycleEnds", JSON.stringify(customEnds));
-    closeCycleEditModal(); render();
-}
+function saveCycleEnd() { let key = document.getElementById('cycle-edit-key').value, dStr = document.getElementById('cycle-edit-date').value; if(!dStr) return; customEnds[key] = dStr; localStorage.setItem("customCycleEnds", JSON.stringify(customEnds)); closeCycleEditModal(); render(); }
+function resetCycleEnd() { let key = document.getElementById('cycle-edit-key').value; delete customEnds[key]; localStorage.setItem("customCycleEnds", JSON.stringify(customEnds)); closeCycleEditModal(); render(); }
 
-// --- テンプレート機能 ---
 function renderTemplates() { 
     document.getElementById('template-list-ui').innerHTML = fixedTemplates.sort((a,b)=>a.day-b.day).map((t,i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:10px 0;border-bottom:1px dashed #eee;">
@@ -70,30 +51,14 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-// --- 予算・サイクル計算 ---
 function getCycle(dObj=new Date()) { 
     const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; 
     if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } 
-    
-    let cycleKey = formatStr(s).substring(0, 7); 
-    if (customEnds[cycleKey]) {
-        e = parseDate(customEnds[cycleKey]);
-    }
-    
+    let cycleKey = formatStr(s).substring(0, 7); if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
     let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate()+1);
     return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
 }
-
-function getCycleDateForDay(tDay, sStr, eStr) { 
-    let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; 
-    while(c<=e && sc<40){ 
-        if(c.getDate()==tDay)return formatStr(c); 
-        let n=new Date(c); n.setDate(c.getDate()+1); 
-        if(c.getMonth()!==n.getMonth())fb=formatStr(c); 
-        c=n; sc++; 
-    } 
-    return fb||formatStr(e); 
-}
+function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
 
 function syncTemplatesWithCycle(calc) {
     let u=false;
@@ -106,7 +71,7 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
-// 【超重要バグ修正】予算計算の錬金術ストッパー
+// 【大改修】錬金術ストッパー ＆ 固定費/小遣いの完全分離
 function calculateCurrentBudget() {
     const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
     let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
@@ -114,47 +79,53 @@ function calculateCurrentBudget() {
     data.forEach(d => { 
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
-                cEx+=d.amount; 
-                if(d.date===tStr) tSp+=d.amount; 
-                if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
+                cEx+=d.amount; // 全ての支出は全体の残高から引く
+                
+                // 【重要】テンプレート由来(固定費)は小遣い予算(tSp, wSp)にはノーカウント！
+                if(!d.templateId) {
+                    if(d.date===tStr) tSp+=d.amount; 
+                    if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
+                }
             } 
-            if(d.type==='income'){ 
-                cIn+=d.amount; 
-            } 
+            if(d.type==='income'){ cIn+=d.amount; } 
         } 
     });
     
-    let cBal = cIn - cEx; // 今のリアルな残高
+    let cBal = cIn - cEx; // リアルな残り残高
     
     let cycleEndObj = parseDate(c.endStr);
     let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1;
-    if (remD < 1) remD = 1;
+    if (remD < 1) remD = 1; 
 
-    // 1日あたりの予算（臨時収入もすべてプールされて均等に割られる）
+    // 日予算 ＝ （リアルな残り残高 ＋ 今日の小遣い使用額） ÷ 残り日数
     let dailyAvg = Math.floor((cBal + tSp) / remD);
-    let tBud = dailyAvg - tSp; // 今日の残り予算
-
-    // 今週の残りの日数（日曜まで）と、サイクルの残り日数（最終日まで）を比べて、短い方を「今週の有効日数」とする
-    let daysUntilSunday = dOfW === 0 ? 0 : 7 - dOfW;
-    let activeDaysLeftInWeek = Math.min(daysUntilSunday + 1, remD);
-
-    // 今週の残り予算 ＝ 今日の残り予算 ＋（1日平均 × 明日以降の有効日数）
-    let wRem = tBud + (dailyAvg * (activeDaysLeftInWeek - 1));
+    if (dailyAvg < 0) dailyAvg = 0;
     
-    // プログレスバー用の今週の全体枠 ＝ 今週すでに使った額 ＋ 今週の残り予算
-    let bFW = wSp + wRem;
+    let tBud = dailyAvg - tSp; // 今日の残り予算
+    
+    // 今週の予算計算（今週は何日間あるか？）
+    let weekStartD = parseDate(sWStr);
+    let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+    let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
+    let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; // サイクル最終日をオーバーしない！
+    
+    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1;
+    if (validDaysInWeek < 1) validDaysInWeek = 1;
+
+    let bFW = dailyAvg * validDaysInWeek; // 今週の総予算枠
+    let wRem = bFW - wSp; // 今週の残り予算
+    
+    // 【ストッパー】週の残りが、全体の残高を飛び越えることは絶対に許さない！
+    if (wRem > cBal) wRem = cBal;
+    
+    // プログレスバーの分母を正しく補正
+    bFW = wSp + (wRem > 0 ? wRem : 0);
     
     return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
 }
 
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-
-function addData(obj) { 
-    if (obj && obj.id) { data.push(obj); save(); render(); return; }
-    const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
-    data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:'confirmed' }); 
-    save(); render(); document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
-}
+function addData(obj) { if (obj && obj.id) { data.push(obj); save(); render(); return; } const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:'confirmed' }); save(); render(); document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; }
 
 function render() {
     const l=document.getElementById("list"); l.innerHTML=""; const c=calculateCurrentBudget(); document.getElementById("cycle-title").innerText=`現在の実績 (${c.cycleText})`; syncTemplatesWithCycle(c);
@@ -171,13 +142,7 @@ function updateMainProgressBar(c) {
     u('main-bar-day','main-val-day','main-amt-day',c.budgetForToday,c.todayBudget); u('main-bar-week','main-val-week','main-amt-week',c.budgetForWeek,c.weekRemaining); u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
 }
 
-function showDetail(id) {
-    const d=data.find(x=>x.id===id); if(!d)return; const p=d.status==='pending';
-    let btns = p ? `<button class="main-btn" style="background:#34C759;margin-bottom:10px;padding:16px;" onclick="confirmRecord(${id})">✅ 確定にする</button><div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`;
-    document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`;
-    document.getElementById('detail-modal').style.display='flex';
-}
-
+function showDetail(id) { const d=data.find(x=>x.id===id); if(!d)return; const p=d.status==='pending'; let btns = p ? `<button class="main-btn" style="background:#34C759;margin-bottom:10px;padding:16px;" onclick="confirmRecord(${id})">✅ 確定にする</button><div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`; document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; document.getElementById('detail-modal').style.display='flex'; }
 function updateRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].date=document.getElementById('edit-date').value; data[i].time=document.getElementById('edit-time').value; data[i].type=document.getElementById('edit-type').value; data[i].amount=Number(document.getElementById('edit-amount').value); data[i].category=document.getElementById('edit-category').value; data[i].memo=document.getElementById('edit-memo').value; data[i].actionLogText=document.getElementById('edit-actionlog').value; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
