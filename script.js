@@ -2,7 +2,6 @@ let isSystemAction = false;
 let data = JSON.parse(localStorage.getItem("moneyData")) || [];
 let stores = JSON.parse(localStorage.getItem("storePresets")) || [];
 let fixedTemplates = JSON.parse(localStorage.getItem("fixedTemplates")) || [];
-// 【追加】カスタム最終日のデータ
 let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
 let activeStore = null, mDCount = 0, mFCount = 0, mTotal = 0, actionLog = [], currentExtraMode = 'D'; 
 
@@ -18,7 +17,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.5':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.6':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -30,7 +29,7 @@ function switchPage(pageId, el) {
     }
 }
 
-// --- 最終日変更機能（追加） ---
+// --- 最終日変更機能 ---
 function showCycleEditModal() {
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey;
@@ -71,12 +70,11 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-// --- 予算・サイクル計算（改修） ---
+// --- 予算・サイクル計算 ---
 function getCycle(dObj=new Date()) { 
     const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; 
     if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } 
     
-    // カスタム最終日の適用
     let cycleKey = formatStr(s).substring(0, 7); 
     if (customEnds[cycleKey]) {
         e = parseDate(customEnds[cycleKey]);
@@ -108,6 +106,7 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
+// 【超重要バグ修正】予算計算の錬金術ストッパー
 function calculateCurrentBudget() {
     const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
     let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
@@ -125,28 +124,25 @@ function calculateCurrentBudget() {
         } 
     });
     
-    let cBal = cIn - cEx; // 現在の残高
+    let cBal = cIn - cEx; // 今のリアルな残高
     
-    // 残り日数の計算 (今日を含む)
-    let remD = Math.ceil((c.nextPayObj.getTime() - t.getTime())/(1000*60*60*24)); 
-    if (remD < 1) remD = 1; // 0割防止
-    
-    // 1日あたりの平均予算（今日の支出をする前の残高で計算）
+    let cycleEndObj = parseDate(c.endStr);
+    let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1;
+    if (remD < 1) remD = 1;
+
+    // 1日あたりの予算（臨時収入もすべてプールされて均等に割られる）
     let dailyAvg = Math.floor((cBal + tSp) / remD);
+    let tBud = dailyAvg - tSp; // 今日の残り予算
+
+    // 今週の残りの日数（日曜まで）と、サイクルの残り日数（最終日まで）を比べて、短い方を「今週の有効日数」とする
+    let daysUntilSunday = dOfW === 0 ? 0 : 7 - dOfW;
+    let activeDaysLeftInWeek = Math.min(daysUntilSunday + 1, remD);
+
+    // 今週の残り予算 ＝ 今日の残り予算 ＋（1日平均 × 明日以降の有効日数）
+    let wRem = tBud + (dailyAvg * (activeDaysLeftInWeek - 1));
     
-    // 今日の予算残額
-    let tBud = dailyAvg - tSp;
-    
-    // 今週の予算計算
-    let aSWS = sWStr < c.startStr ? c.startStr : sWStr; 
-    let dIW = 7; 
-    if(sWStr < c.startStr) {
-        dIW = 7 - Math.round((parseDate(c.startStr).getTime() - parseDate(sWStr).getTime())/(1000*60*60*24));
-    }
-    // 今週の総予算枠
-    let bFW = dailyAvg * dIW;
-    // 今週の残り予算
-    let wRem = bFW - wSp;
+    // プログレスバー用の今週の全体枠 ＝ 今週すでに使った額 ＋ 今週の残り予算
+    let bFW = wSp + wRem;
     
     return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
 }
@@ -251,3 +247,5 @@ function finishProject() {
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
 }
+
+
