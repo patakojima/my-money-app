@@ -2,6 +2,8 @@ let isSystemAction = false;
 let data = JSON.parse(localStorage.getItem("moneyData")) || [];
 let stores = JSON.parse(localStorage.getItem("storePresets")) || [];
 let fixedTemplates = JSON.parse(localStorage.getItem("fixedTemplates")) || [];
+// 【追加】カスタム最終日のデータ
+let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
 let activeStore = null, mDCount = 0, mFCount = 0, mTotal = 0, actionLog = [], currentExtraMode = 'D'; 
 
 const formatStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -16,18 +18,39 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.4':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.5':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
-            document.getElementById('active-project-id').value = activeStore.id; 
-            document.getElementById('active-terminal-area').style.display = 'block'; 
-            document.getElementById('label-price-a').innerText = activeStore.a; 
-            document.getElementById('label-price-b').innerText = activeStore.b; 
+            document.getElementById('active-project-id').value = activeStore.id; document.getElementById('active-terminal-area').style.display = 'block'; 
+            document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; 
             setExtraMode(currentExtraMode); updateTDisplay(); 
         } 
         updateProgressBar(); setTimeout(() => isSystemAction = false, 50); 
     }
+}
+
+// --- 最終日変更機能（追加） ---
+function showCycleEditModal() {
+    let c = getCycle(new Date()); 
+    document.getElementById('cycle-edit-key').value = c.cycleKey;
+    document.getElementById('cycle-edit-date').value = c.endStr;
+    document.getElementById('cycle-edit-modal').style.display = 'flex';
+}
+function closeCycleEditModal() { document.getElementById('cycle-edit-modal').style.display = 'none'; }
+function saveCycleEnd() {
+    let key = document.getElementById('cycle-edit-key').value;
+    let dStr = document.getElementById('cycle-edit-date').value;
+    if(!dStr) return;
+    customEnds[key] = dStr;
+    localStorage.setItem("customCycleEnds", JSON.stringify(customEnds));
+    closeCycleEditModal(); render();
+}
+function resetCycleEnd() {
+    let key = document.getElementById('cycle-edit-key').value;
+    delete customEnds[key];
+    localStorage.setItem("customCycleEnds", JSON.stringify(customEnds));
+    closeCycleEditModal(); render();
 }
 
 // --- テンプレート機能 ---
@@ -48,8 +71,31 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-function getCycle(dObj=new Date()) { const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(new Date(e.getFullYear(),e.getMonth(),e.getDate()+1)), nextPayObj:new Date(e.getFullYear(),e.getMonth(),e.getDate()+1) }; }
-function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
+// --- 予算・サイクル計算（改修） ---
+function getCycle(dObj=new Date()) { 
+    const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; 
+    if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } 
+    
+    // カスタム最終日の適用
+    let cycleKey = formatStr(s).substring(0, 7); 
+    if (customEnds[cycleKey]) {
+        e = parseDate(customEnds[cycleKey]);
+    }
+    
+    let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate()+1);
+    return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
+}
+
+function getCycleDateForDay(tDay, sStr, eStr) { 
+    let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; 
+    while(c<=e && sc<40){ 
+        if(c.getDate()==tDay)return formatStr(c); 
+        let n=new Date(c); n.setDate(c.getDate()+1); 
+        if(c.getMonth()!==n.getMonth())fb=formatStr(c); 
+        c=n; sc++; 
+    } 
+    return fb||formatStr(e); 
+}
 
 function syncTemplatesWithCycle(calc) {
     let u=false;
@@ -63,10 +109,46 @@ function syncTemplatesWithCycle(calc) {
 }
 
 function calculateCurrentBudget() {
-    const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); let cEx=0, cIn=0, tSp=0, tIn=0, wSp=0, wIn=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
-    data.forEach(d => { if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { if(d.type==='expense'){ cEx+=d.amount; if(d.date===tStr)tSp+=d.amount; if(d.date>=sWStr && d.date<=tStr)wSp+=d.amount; } if(d.type==='income'){ cIn+=d.amount; if(d.date===tStr)tIn+=d.amount; if(d.date>=sWStr && d.date<=tStr)wIn+=d.amount; } } });
-    let cBal=cIn-cEx, sODBal=cBal+tSp-tIn, remD=Math.ceil((c.nextPayObj.getTime()-t.getTime())/(1000*60*60*24)), bFT=remD>0?Math.floor(sODBal/remD):sODBal, tBud=bFT+tIn-tSp, aSWS=sWStr<c.startStr?c.startStr:sWStr, sWD=parseDate(aSWS), remDW=Math.ceil((c.nextPayObj.getTime()-sWD.getTime())/(1000*60*60*24)), sOWB=cBal+wSp-wIn, bPDW=remDW>0?Math.floor(sOWB/remDW):sOWB, dIW=7; if(sWStr<c.startStr) dIW=7-Math.round((parseDate(c.startStr).getTime()-parseDate(sWStr).getTime())/(1000*60*60*24)); let bFW=bPDW*dIW, wRem=bFW+wIn-wSp;
-    return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:bFT, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
+    const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
+    let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
+    
+    data.forEach(d => { 
+        if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
+            if(d.type==='expense'){ 
+                cEx+=d.amount; 
+                if(d.date===tStr) tSp+=d.amount; 
+                if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
+            } 
+            if(d.type==='income'){ 
+                cIn+=d.amount; 
+            } 
+        } 
+    });
+    
+    let cBal = cIn - cEx; // 現在の残高
+    
+    // 残り日数の計算 (今日を含む)
+    let remD = Math.ceil((c.nextPayObj.getTime() - t.getTime())/(1000*60*60*24)); 
+    if (remD < 1) remD = 1; // 0割防止
+    
+    // 1日あたりの平均予算（今日の支出をする前の残高で計算）
+    let dailyAvg = Math.floor((cBal + tSp) / remD);
+    
+    // 今日の予算残額
+    let tBud = dailyAvg - tSp;
+    
+    // 今週の予算計算
+    let aSWS = sWStr < c.startStr ? c.startStr : sWStr; 
+    let dIW = 7; 
+    if(sWStr < c.startStr) {
+        dIW = 7 - Math.round((parseDate(c.startStr).getTime() - parseDate(sWStr).getTime())/(1000*60*60*24));
+    }
+    // 今週の総予算枠
+    let bFW = dailyAvg * dIW;
+    // 今週の残り予算
+    let wRem = bFW - wSp;
+    
+    return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
 }
 
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
@@ -105,36 +187,13 @@ function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)ret
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 function deleteRecord(id) { if(!confirm("削除しますか？"))return; const i=data.findIndex(x=>x.id===id); if(data[i].templateId)data[i].status='deleted'; else data.splice(i,1); save(); render(); document.getElementById('detail-modal').style.display='none'; }
 
-// --- お店管理 ---
 function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
 function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
+function updateStoreUI() { document.getElementById('store-list-ui').innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">編集</button><button onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">✖</button></div></div>`).join(''); }
 
-// 【修正点】店舗リストのボタンを美しく押しやすい角丸デザインに！
-function updateStoreUI() { 
-    document.getElementById('store-list-ui').innerHTML=stores.map(s=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;">
-            <div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div>
-            <div style="display:flex; gap:6px;">
-                <button onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">編集</button>
-                <button onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">✖</button>
-            </div>
-        </div>
-    `).join(''); 
-}
-
-// --- ターミナル（ステルス）機能 ---
-function handleProjectSelection() { 
-    if(isSystemAction)return; 
-    activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); 
-    if(activeStore){ 
-        document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; 
-        mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); 
-    }else{ 
-        document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; 
-    } 
-}
+function handleProjectSelection() { if(isSystemAction)return; activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); if(activeStore){ document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }else{ document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; } }
 function saveTerminalDraft() { if(activeStore)localStorage.setItem("terminalDraft",JSON.stringify({activeStore,mDCount,mFCount,mTotal,actionLog,currentExtraMode})); }
 function loadTerminalDraft() { const d=JSON.parse(localStorage.getItem("terminalDraft")); if(d&&d.activeStore){activeStore=d.activeStore;mDCount=d.mDCount||0;mFCount=d.mFCount||0;mTotal=d.mTotal||0;actionLog=d.actionLog||[];currentExtraMode=d.currentExtraMode||'D';} }
 const getT=()=>`${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
@@ -153,7 +212,12 @@ function saveActionEdit() { const id=Number(document.getElementById('stealth-edi
 
 function updateProgressBar() {
     let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    const u=(bId,vId,aId,bM,cR,cS)=>{let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId),fR=cR-cS;if(bM<=0&&fR<=0){b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText='0円';a.style.color='#8e8e93';}else if(fR<0){b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=fR.toLocaleString()+'円';a.style.color='#ff3b30';}else{let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=fR.toLocaleString()+'円';a.style.color='#1c1c1e';}};
+    const u=(bId,vId,aId,bM,cR,cS)=>{
+        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId),fR=cR-cS;
+        if(bM<=0&&fR<=0){b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText='0円';a.style.color='#8e8e93';}
+        else if(fR<0){b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=fR.toLocaleString()+'円';a.style.color='#ff3b30';}
+        else{let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=fR.toLocaleString()+'円';a.style.color='#1c1c1e';}
+    };
     u('bar-day','val-day','amt-day',c.budgetForToday,c.todayBudget,mTotal); 
     u('bar-week','val-week','amt-week',c.budgetForWeek,c.weekRemaining,mTotal); 
     u('bar-core','val-core','amt-core',tIn,c.currentBalance,mTotal);
@@ -187,4 +251,3 @@ function finishProject() {
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
 }
-
