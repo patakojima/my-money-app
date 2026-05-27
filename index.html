@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v7.4</title>
+<title>Integrated Ops Terminal v7.5</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +15,11 @@
 
 <div class="content">
   <div id="page-main" class="page active">
-    <h2 id="cycle-title">現在の実績</h2>
+    <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
+      <span id="cycle-title">現在の実績</span>
+      <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 最終日変更</button>
+    </h2>
+    
     <div class="card total-box">
       <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高 (Balance)</div>
       <div class="total-amount" id="total">0円</div>
@@ -156,6 +160,18 @@
     </div>
 </div>
 
+<div id="cycle-edit-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの最終日変更</h3>
+        <p style="font-size:12px; color:#666;">給料日が前倒しになる場合など、今サイクルの「最終日(給料日の前日)」を設定できます。</p>
+        <input type="hidden" id="cycle-edit-key">
+        <input type="date" id="cycle-edit-date">
+        <button class="main-btn" style="background:#34C759;" onclick="saveCycleEnd()">設定を保存</button>
+        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (月末)</button>
+        <button class="main-btn" style="background:#ccc;" onclick="closeCycleEditModal()">キャンセル</button>
+    </div>
+</div>
+
 <nav class="tab-bar">
     <button class="tab-item active" onclick="switchPage('main', this)">📊 MAIN</button>
     <button class="tab-item" onclick="switchPage('terminal', this)">🛰️ TERMINAL</button>
@@ -165,5 +181,4 @@
 <script src="script.js"></script>
 </body>
 </html>
-
 
