@@ -17,7 +17,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.8':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -51,32 +51,44 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-// --- 【時を動かす改修】サイクル判定 ---
+// --- 【完全修正】正しい月の期間を判定 ---
 function getCycle(dObj=new Date()) { 
-    const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; 
-    if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } 
+    const y=dObj.getFullYear(), m=dObj.getMonth();
+    
+    // 基本のサイクル（前月末日 〜 今月末日の前日）
+    let s = new Date(y, m, 0); 
+    let e = new Date(y, m + 1, 0); 
+    e.setDate(e.getDate() - 1); 
     
     let cycleKey = formatStr(s).substring(0, 7); 
     if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
-    let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate()+1);
+    let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
 
-    // ★ 最終日を過ぎている場合は強制的に「次のサイクル」へシフト！
+    // ★ 今日が最終日を過ぎていたら、ちゃんと「来月の最終日」までをサイクルとして設定する
     if (formatStr(dObj) >= formatStr(nextP)) {
         s = nextP;
-        let defaultEnd = new Date(y, m, ld - 1);
-        if (s > defaultEnd) {
-            let nextLd = new Date(y, m + 2, 0).getDate();
-            e = new Date(y, m + 1, nextLd - 1);
-        } else {
-            e = defaultEnd;
-        }
+        let nextLd = new Date(y, m + 2, 0); 
+        e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
+        
         cycleKey = formatStr(s).substring(0, 7);
         if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
         nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
     }
     
+    // ★ 念のため、過去に戻った時のストッパー
+    if (formatStr(dObj) < formatStr(s)) {
+        let prevLd = new Date(y, m, 0);
+        e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1);
+        s = new Date(y, m - 1, 0);
+        
+        cycleKey = formatStr(s).substring(0, 7);
+        if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    }
+
     return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
 }
+
 function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
 
 function syncTemplatesWithCycle(calc) {
@@ -201,45 +213,28 @@ function finishProject() {
     switchPage('main',document.querySelector('.tab-item')); 
 }
 
-// --- CSVエクスポート機能 ---
 function downloadCSV() {
-    if (!data || data.length === 0) {
-        alert("出力するデータがありません。");
-        return;
-    }
-
-    // MacのExcelで文字化けしないための「BOM」付きUTF-8ヘッダー
+    if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
-
-    // 日付の新しい順に並べ替え
     const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
-
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
         let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
         let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
         let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
-
         csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
-
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const today = formatStr(new Date()).replace(/-/g, '');
     const fileName = `money_data_${today}.csv`;
-
-    // iPhoneの「共有メニュー」を呼び出す
     if (navigator.share) {
         const file = new File([blob], fileName, { type: 'text/csv' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({
-                files: [file]
-            }).catch(err => console.log('キャンセルされました:', err));
+            navigator.share({ files: [file] }).catch(err => console.log('キャンセルされました:', err));
             return;
         }
     }
-
-    // PCなど向けのフォールバック
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
