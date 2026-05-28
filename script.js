@@ -17,7 +17,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.6':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.7':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -71,56 +71,25 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
-// 【大改修】錬金術ストッパー ＆ 固定費/小遣いの完全分離
 function calculateCurrentBudget() {
     const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
     let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
-    
     data.forEach(d => { 
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
-            if(d.type==='expense'){ 
-                cEx+=d.amount; // 全ての支出は全体の残高から引く
-                
-                // 【重要】テンプレート由来(固定費)は小遣い予算(tSp, wSp)にはノーカウント！
-                if(!d.templateId) {
-                    if(d.date===tStr) tSp+=d.amount; 
-                    if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
-                }
-            } 
+            if(d.type==='expense'){ cEx+=d.amount; if(!d.templateId) { if(d.date===tStr) tSp+=d.amount; if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; } } 
             if(d.type==='income'){ cIn+=d.amount; } 
         } 
     });
     
-    let cBal = cIn - cEx; // リアルな残り残高
-    
-    let cycleEndObj = parseDate(c.endStr);
-    let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1;
-    if (remD < 1) remD = 1; 
-
-    // 日予算 ＝ （リアルな残り残高 ＋ 今日の小遣い使用額） ÷ 残り日数
-    let dailyAvg = Math.floor((cBal + tSp) / remD);
-    if (dailyAvg < 0) dailyAvg = 0;
-    
-    let tBud = dailyAvg - tSp; // 今日の残り予算
-    
-    // 今週の予算計算（今週は何日間あるか？）
-    let weekStartD = parseDate(sWStr);
-    let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+    let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
+    let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
+    let tBud = dailyAvg - tSp;
+    let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
     let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
-    let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; // サイクル最終日をオーバーしない！
-    
-    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1;
-    if (validDaysInWeek < 1) validDaysInWeek = 1;
-
-    let bFW = dailyAvg * validDaysInWeek; // 今週の総予算枠
-    let wRem = bFW - wSp; // 今週の残り予算
-    
-    // 【ストッパー】週の残りが、全体の残高を飛び越えることは絶対に許さない！
-    if (wRem > cBal) wRem = cBal;
-    
-    // プログレスバーの分母を正しく補正
-    bFW = wSp + (wRem > 0 ? wRem : 0);
-    
+    let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
+    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
+    let bFW = dailyAvg * validDaysInWeek; let wRem = bFW - wSp; 
+    if (wRem > cBal) wRem = cBal; bFW = wSp + (wRem > 0 ? wRem : 0);
     return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
 }
 
@@ -211,6 +180,43 @@ function finishProject() {
     alert("記録完了！"); closeCheckout(); localStorage.removeItem("terminalDraft"); 
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
+}
+
+// --- 【追加】CSVエクスポート機能 ---
+function downloadCSV() {
+    if (!data || data.length === 0) {
+        alert("出力するデータがありません。");
+        return;
+    }
+
+    // MacのExcelで文字化けしないための「BOM」付きUTF-8ヘッダー
+    let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
+
+    // 日付の新しい順に並べ替え
+    const sortedData = [...data].sort((a,b) => (b.date + " " + b.time).localeCompare(a.date + " " + a.time));
+
+    sortedData.forEach(d => {
+        let type = d.type === 'income' ? '収入' : '支出';
+        let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
+        // 文字列の中にカンマや改行が含まれていてもExcelで崩れないようにダブルクォーテーションで囲む
+        let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
+        let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
+        let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+
+        csvContent += `${d.date},${d.time},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    const today = formatStr(new Date()).replace(/-/g, '');
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", `money_data_${today}.csv`);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 
