@@ -17,7 +17,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.7':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.8':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -51,11 +51,30 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
+// --- 【時を動かす改修】サイクル判定 ---
 function getCycle(dObj=new Date()) { 
     const y=dObj.getFullYear(), m=dObj.getMonth(), d=dObj.getDate(), ld=new Date(y,m+1,0).getDate(); let s, e; 
     if(d===ld){ s=new Date(y,m,d); e=new Date(y,m+1,new Date(y,m+2,0).getDate()-1); }else{ s=new Date(y,m-1,new Date(y,m,0).getDate()); e=new Date(y,m,ld-1); } 
-    let cycleKey = formatStr(s).substring(0, 7); if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+    
+    let cycleKey = formatStr(s).substring(0, 7); 
+    if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
     let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate()+1);
+
+    // ★ 最終日を過ぎている場合は強制的に「次のサイクル」へシフト！
+    if (formatStr(dObj) >= formatStr(nextP)) {
+        s = nextP;
+        let defaultEnd = new Date(y, m, ld - 1);
+        if (s > defaultEnd) {
+            let nextLd = new Date(y, m + 2, 0).getDate();
+            e = new Date(y, m + 1, nextLd - 1);
+        } else {
+            e = defaultEnd;
+        }
+        cycleKey = formatStr(s).substring(0, 7);
+        if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    }
+    
     return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
 }
 function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
@@ -182,7 +201,7 @@ function finishProject() {
     switchPage('main',document.querySelector('.tab-item')); 
 }
 
-// --- 【修正版v2】CSVエクスポート機能（謎のテキストファイル退治） ---
+// --- CSVエクスポート機能 ---
 function downloadCSV() {
     if (!data || data.length === 0) {
         alert("出力するデータがありません。");
@@ -213,7 +232,6 @@ function downloadCSV() {
     if (navigator.share) {
         const file = new File([blob], fileName, { type: 'text/csv' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            // 【修正】titleを削除し、純粋にファイルだけを渡す！
             navigator.share({
                 files: [file]
             }).catch(err => console.log('キャンセルされました:', err));
