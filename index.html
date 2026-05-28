@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v7.5</title>
+<title>Integrated Ops Terminal v7.7</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -69,8 +69,12 @@
       <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
     </div>
 
-    <div style="font-size:12px; font-weight:bold; color:#666; margin-left:5px;">入出金履歴</div>
-    <div class="card" id="list"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
+        <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
+        <button onclick="downloadCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1);">📥 CSV出力</button>
+    </div>
+    
+    <div class="card" id="list" style="margin-top:8px;"></div>
   </div>
 
   <div id="page-fixed" class="page">
@@ -181,4 +185,5 @@
 <script src="script.js"></script>
 </body>
 </html>
+
 
