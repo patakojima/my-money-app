@@ -17,7 +17,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V8.0':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -51,44 +51,36 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-// --- 【v8.0 新機能】土日前倒し対応の給料日計算ロジック ---
-function getActualPayday(y, m) {
-    let d = new Date(y, m + 1, 0); // その月の末日
-    let day = d.getDay();
-    if (day === 0) d.setDate(d.getDate() - 2); // 日曜なら金曜(-2日)
-    else if (day === 6) d.setDate(d.getDate() - 1); // 土曜なら金曜(-1日)
-    return d;
-}
-
-function getCycle(dObj = new Date()) { 
-    const y = dObj.getFullYear(), m = dObj.getMonth();
-    const todayStr = formatStr(dObj);
+function getCycle(dObj=new Date()) { 
+    const y=dObj.getFullYear(), m=dObj.getMonth();
     
-    // 今月の「実際の給料日（前倒し考慮）」
-    let thisPayday = getActualPayday(y, m);
-    let s, e, nextP;
-
-    if (todayStr >= formatStr(thisPayday)) {
-        // 今日が今月の給料日以降なら、サイクルは「今月の給料日 〜 来月の給料日の前日」
-        s = thisPayday;
-        nextP = getActualPayday(y, m + 1);
-        e = new Date(nextP.getFullYear(), nextP.getMonth(), nextP.getDate() - 1);
-    } else {
-        // 今日が今月の給料日前なら、サイクルは「先月の給料日 〜 今月の給料日の前日」
-        s = getActualPayday(y, m - 1);
-        nextP = thisPayday;
-        e = new Date(nextP.getFullYear(), nextP.getMonth(), nextP.getDate() - 1);
-    }
+    // 基本のサイクル（前月末日 〜 今月末日の前日）
+    let s = new Date(y, m, 0); 
+    let e = new Date(y, m + 1, 0); 
+    e.setDate(e.getDate() - 1); 
     
     let cycleKey = formatStr(s).substring(0, 7); 
-    if (customEnds[cycleKey]) { 
-        e = parseDate(customEnds[cycleKey]);
-        // 過去のバグ設定（開始日より前になってしまっているデータ）は強制的に無視して自動修正！
-        if (formatStr(e) < formatStr(s)) {
-            e = new Date(nextP.getFullYear(), nextP.getMonth(), nextP.getDate() - 1);
-        } else {
-            nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
-        }
+    if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+    let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+
+    if (formatStr(dObj) >= formatStr(nextP)) {
+        s = nextP;
+        let nextLd = new Date(y, m + 2, 0); 
+        e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
+        
+        cycleKey = formatStr(s).substring(0, 7);
+        if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    }
+    
+    if (formatStr(dObj) < formatStr(s)) {
+        let prevLd = new Date(y, m, 0);
+        e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1);
+        s = new Date(y, m - 1, 0);
+        
+        cycleKey = formatStr(s).substring(0, 7);
+        if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
     }
 
     return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
