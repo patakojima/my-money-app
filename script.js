@@ -182,7 +182,7 @@ function finishProject() {
     switchPage('main',document.querySelector('.tab-item')); 
 }
 
-// --- 【修正版】CSVエクスポート機能（iPhoneホーム画面対応） ---
+// --- 【修正版v2】CSVエクスポート機能（謎のテキストファイル退治） ---
 function downloadCSV() {
     if (!data || data.length === 0) {
         alert("出力するデータがありません。");
@@ -209,20 +209,19 @@ function downloadCSV() {
     const today = formatStr(new Date()).replace(/-/g, '');
     const fileName = `money_data_${today}.csv`;
 
-    // 【ここがポイント！】iPhoneの「共有メニュー」を呼び出す
+    // iPhoneの「共有メニュー」を呼び出す
     if (navigator.share) {
         const file = new File([blob], fileName, { type: 'text/csv' });
-        // iPhoneがこのファイルの共有をサポートしているか確認
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            // 【修正】titleを削除し、純粋にファイルだけを渡す！
             navigator.share({
-                files: [file],
-                title: '入出金履歴CSV'
+                files: [file]
             }).catch(err => console.log('キャンセルされました:', err));
-            return; // ここで処理完了
+            return;
         }
     }
 
-    // PCなど、共有メニューが使えない環境のフォールバック（通常のダウンロード）
+    // PCなど向けのフォールバック
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
