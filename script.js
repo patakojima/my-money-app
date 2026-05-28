@@ -182,7 +182,7 @@ function finishProject() {
     switchPage('main',document.querySelector('.tab-item')); 
 }
 
-// --- 【追加】CSVエクスポート機能 ---
+// --- 【修正版】CSVエクスポート機能（iPhoneホーム画面対応） ---
 function downloadCSV() {
     if (!data || data.length === 0) {
         alert("出力するデータがありません。");
@@ -193,30 +193,43 @@ function downloadCSV() {
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
 
     // 日付の新しい順に並べ替え
-    const sortedData = [...data].sort((a,b) => (b.date + " " + b.time).localeCompare(a.date + " " + a.time));
+    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
 
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        // 文字列の中にカンマや改行が含まれていてもExcelで崩れないようにダブルクォーテーションで囲む
         let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
         let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
         let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
 
-        csvContent += `${d.date},${d.time},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
+        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const today = formatStr(new Date()).replace(/-/g, '');
+    const fileName = `money_data_${today}.csv`;
+
+    // 【ここがポイント！】iPhoneの「共有メニュー」を呼び出す
+    if (navigator.share) {
+        const file = new File([blob], fileName, { type: 'text/csv' });
+        // iPhoneがこのファイルの共有をサポートしているか確認
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                files: [file],
+                title: '入出金履歴CSV'
+            }).catch(err => console.log('キャンセルされました:', err));
+            return; // ここで処理完了
+        }
+    }
+
+    // PCなど、共有メニューが使えない環境のフォールバック（通常のダウンロード）
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    const today = formatStr(new Date()).replace(/-/g, '');
-    
     link.setAttribute("href", url);
-    link.setAttribute("download", `money_data_${today}.csv`);
+    link.setAttribute("download", fileName);
     link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 }
-
 
