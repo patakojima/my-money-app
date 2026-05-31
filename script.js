@@ -53,12 +53,9 @@ function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemp
 
 function getCycle(dObj=new Date()) { 
     const y=dObj.getFullYear(), m=dObj.getMonth();
-    
-    // 基本のサイクル（前月末日 〜 今月末日の前日）
     let s = new Date(y, m, 0); 
     let e = new Date(y, m + 1, 0); 
     e.setDate(e.getDate() - 1); 
-    
     let cycleKey = formatStr(s).substring(0, 7); 
     if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
     let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
@@ -67,7 +64,6 @@ function getCycle(dObj=new Date()) {
         s = nextP;
         let nextLd = new Date(y, m + 2, 0); 
         e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
-        
         cycleKey = formatStr(s).substring(0, 7);
         if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
         nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
@@ -77,7 +73,6 @@ function getCycle(dObj=new Date()) {
         let prevLd = new Date(y, m, 0);
         e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1);
         s = new Date(y, m - 1, 0);
-        
         cycleKey = formatStr(s).substring(0, 7);
         if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
         nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
@@ -112,10 +107,14 @@ function calculateCurrentBudget() {
     let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
     let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
     let tBud = dailyAvg - tSp;
-    let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
-    let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
+    let weekStartD = parseDate(sWStr); 
+    let cycleStartObj = parseDate(c.startStr);
+    let validStart = weekStartD < cycleStartObj ? cycleStartObj : weekStartD;
+    
+    let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
     let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
     let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
+    
     let bFW = dailyAvg * validDaysInWeek; let wRem = bFW - wSp; 
     if (wRem > cBal) wRem = cBal; bFW = wSp + (wRem > 0 ? wRem : 0);
     return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
@@ -135,8 +134,32 @@ function render() {
 
 function updateMainProgressBar(c) {
     let tIn=data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    const u=(bId,vId,aId,mV,cV)=>{ let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId); if(mV<=0&&cV<=0){b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText='0円';a.style.color='#8e8e93';}else if(cV<0){b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=cV.toLocaleString()+'円';a.style.color='#ff3b30';}else{let p=mV>0?(cV/mV)*100:100;if(p>100)p=100;b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=cV.toLocaleString()+'円';a.style.color='#1c1c1e';}};
-    u('main-bar-day','main-val-day','main-amt-day',c.budgetForToday,c.todayBudget); u('main-bar-week','main-val-week','main-amt-week',c.budgetForWeek,c.weekRemaining); u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
+    
+    const u=(bId,vId,aId,bM,cV)=>{ 
+        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId); 
+        let used = bM - cV; 
+        let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
+        let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
+        
+        if(bM<=0&&cV<=0){
+            b.style.width='0%';b.style.background='#e5e5ea';
+            v.innerText='0%';v.style.color='#8e8e93';
+            a.innerText=textNormal;a.style.color='#8e8e93';
+        }else if(cV<0){
+            b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';
+            v.innerText='OVER';v.style.color='#ff3b30';
+            a.innerText=textOver;a.style.color='#ff3b30';
+        }else{
+            let p=bM>0?(cV/bM)*100:100;if(p>100)p=100;
+            b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';
+            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');
+            a.innerText=textNormal;a.style.color='#1c1c1e';
+        }
+    };
+    
+    u('main-bar-day','main-val-day','main-amt-day',c.budgetForToday,c.todayBudget); 
+    u('main-bar-week','main-val-week','main-amt-week',c.budgetForWeek,c.weekRemaining); 
+    u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
 }
 
 function showDetail(id) { const d=data.find(x=>x.id===id); if(!d)return; const p=d.status==='pending'; let btns = p ? `<button class="main-btn" style="background:#34C759;margin-bottom:10px;padding:16px;" onclick="confirmRecord(${id})">✅ 確定にする</button><div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`; document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; document.getElementById('detail-modal').style.display='flex'; }
@@ -169,13 +192,32 @@ function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return
 function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
 
 function updateProgressBar() {
-    let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    let c=calculateCurrentBudget(); 
+    let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    
     const u=(bId,vId,aId,bM,cR,cS)=>{
-        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId),fR=cR-cS;
-        if(bM<=0&&fR<=0){b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText='0円';a.style.color='#8e8e93';}
-        else if(fR<0){b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=fR.toLocaleString()+'円';a.style.color='#ff3b30';}
-        else{let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=fR.toLocaleString()+'円';a.style.color='#1c1c1e';}
+        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
+        let fR=cR-cS;
+        let used = bM - fR; 
+        let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
+        let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
+        
+        if(bM<=0&&fR<=0){
+            b.style.width='0%';b.style.background='#e5e5ea';
+            v.innerText='0%';v.style.color='#8e8e93';
+            a.innerText=textNormal;a.style.color='#8e8e93';
+        }else if(fR<0){
+            b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';
+            v.innerText='OVER';v.style.color='#ff3b30';
+            a.innerText=textOver;a.style.color='#ff3b30';
+        }else{
+            let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;
+            b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';
+            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');
+            a.innerText=textNormal;a.style.color='#1c1c1e';
+        }
     };
+    
     u('bar-day','val-day','amt-day',c.budgetForToday,c.todayBudget,mTotal); 
     u('bar-week','val-week','amt-week',c.budgetForWeek,c.weekRemaining,mTotal); 
     u('bar-core','val-core','amt-core',tIn,c.currentBalance,mTotal);
@@ -241,5 +283,3 @@ function downloadCSV() {
     link.click();
     document.body.removeChild(link);
 }
-
-
