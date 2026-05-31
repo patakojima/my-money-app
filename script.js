@@ -1,70 +1,182 @@
-:root {
-    --bg-main: #f3f4f6;
-    --card-bg: #ffffff;
-    --text-dark: #1c1c1e;
-    --text-gray: #8e8e93;
-    --blue: #007aff;
-    --green: #34c759;
-    --border: #e5e5ea;
+let data = JSON.parse(localStorage.getItem("moneyData")) || [];
+let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
+
+const formatStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseDate = (s) => { if(!s) return new Date(); const p = s.split('-'); return new Date(p[0], p[1]-1, p[2]); };
+
+window.onload = () => { 
+    const dateEl = document.getElementById("date");
+    if(dateEl) dateEl.value = formatStr(new Date()); 
+    render(); 
+};
+
+function switchPage(pageId, el) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pEl = document.getElementById('page-' + pageId);
+    if(pEl) pEl.classList.add('active');
+    
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    if(el) el.classList.add('active');
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-body { background: var(--bg-main); color: var(--text-dark); padding-bottom: 90px; }
+function getV(id) { const el = document.getElementById(id); return el ? el.value : ""; }
+function setV(id, val) { const el = document.getElementById(id); if(el) el.value = val; }
+function setTxt(id, txt) { const el = document.getElementById(id); if(el) el.innerText = txt; }
 
-.header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
-.header-title { color: var(--blue); font-weight: 800; font-size: 14px; letter-spacing: 1px; font-family: monospace; }
-.header-status { font-size: 10px; color: var(--text-gray); display: flex; align-items: center; font-weight: bold; font-family: monospace; }
-.dot { height: 6px; width: 6px; background-color: var(--green); border-radius: 50%; display: inline-block; margin-right: 4px; }
+function showCycleEditModal() { 
+    let c = getCycle(new Date()); 
+    setV('cycle-edit-key', c.cycleKey); 
+    setV('cycle-edit-date', c.endStr); 
+    const m = document.getElementById('cycle-edit-modal'); 
+    if(m) m.style.display = 'flex'; 
+}
 
-.page { display: none; padding: 0 15px; }
-.page.active { display: block; }
+function closeCycleEditModal() { 
+    const m = document.getElementById('cycle-edit-modal'); 
+    if(m) m.style.display = 'none'; 
+}
 
-.title-area { display: flex; justify-content: center; align-items: center; margin: 10px 0 20px; gap: 10px;}
-.title-area h2 { font-size: 20px; font-weight: 800; color: var(--text-dark); }
-.edit-btn { background: #e5f0ff; color: var(--blue); border: none; padding: 6px 12px; border-radius: 16px; font-size: 12px; font-weight: bold; cursor: pointer; }
+function saveCycleEnd() { 
+    let k=getV('cycle-edit-key'), d=getV('cycle-edit-date'); 
+    if(!d) return; 
+    customEnds[k] = d; 
+    localStorage.setItem("customCycleEnds", JSON.stringify(customEnds)); 
+    closeCycleEditModal(); 
+    render(); 
+}
 
-.card { background: var(--card-bg); border-radius: 16px; padding: 20px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+function getCycle(dObj=new Date()) { 
+    const y=dObj.getFullYear(), m=dObj.getMonth();
+    let s = new Date(y, m, 0); 
+    let e = new Date(y, m + 1, 0); e.setDate(e.getDate() - 1); 
+    let cycleKey = formatStr(s).substring(0, 7); 
+    if (customEnds[cycleKey]) e = parseDate(customEnds[cycleKey]);
+    let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    
+    if (formatStr(dObj) >= formatStr(nextP)) {
+        s = nextP; let nextLd = new Date(y, m + 2, 0); e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
+        cycleKey = formatStr(s).substring(0, 7); if (customEnds[cycleKey]) e = parseDate(customEnds[cycleKey]);
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    }
+    if (formatStr(dObj) < formatStr(s)) {
+        let prevLd = new Date(y, m, 0); e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1);
+        s = new Date(y, m - 1, 0); cycleKey = formatStr(s).substring(0, 7);
+        if (customEnds[cycleKey]) e = parseDate(customEnds[cycleKey]);
+        nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
+    }
+    return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
+}
 
-.balance-card { text-align: center; }
-.balance-card .label { font-size: 12px; color: var(--text-gray); font-weight: bold; margin-bottom: 8px; }
-.balance-card .amount { font-size: 32px; font-weight: 800; }
+function calculateCurrentBudget() {
+    const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
+    let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
+    
+    data.forEach(d => { 
+        if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
+            if(d.type==='expense'){ 
+                cEx+=d.amount; 
+                if(d.date===tStr) tSp+=d.amount; 
+                if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
+            } 
+            if(d.type==='income'){ cIn+=d.amount; } 
+        } 
+    });
+    
+    let cBal = cIn - cEx; 
+    let cycleEndObj = parseDate(c.endStr); 
+    let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; 
+    if (remD < 1) remD = 1; 
+    
+    let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
+    let tBud = dailyAvg - tSp; 
+    
+    let weekStartD = parseDate(sWStr); let cycleStartObj = parseDate(c.startStr);
+    let validStart = weekStartD < cycleStartObj ? cycleStartObj : weekStartD;
+    let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+    let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
+    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
+    
+    let bFW = dailyAvg * validDaysInWeek; let wRem = bFW - wSp; 
+    if (wRem > cBal) wRem = cBal; bFW = wSp + (wRem > 0 ? wRem : 0);
+    
+    return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
+}
 
-.budget-row { background: var(--card-bg); border-radius: 16px; display: flex; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 20px 0;}
-.budget-box { flex: 1; text-align: center; }
-.budget-box .label { font-size: 12px; color: var(--text-gray); font-weight: bold; margin-bottom: 8px; }
-.budget-box .amount { font-size: 20px; font-weight: 800; }
-.divider { width: 1px; background: var(--border); }
+function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
 
-.metrics-card { background: #f8fafc; border: 1px solid #e2e8f0; }
-.metrics-title { font-size: 11px; font-weight: 800; color: #94a3b8; margin-bottom: 16px; font-family: monospace; }
-.metric-row { margin-bottom: 14px; }
-.metric-row:last-child { margin-bottom: 0; }
-.metric-labels { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: var(--text-gray); margin-bottom: 6px; font-family: monospace; }
-.metric-labels span span { margin-left: 5px; color: var(--text-dark); font-family: -apple-system, sans-serif; }
-.progress-bg { background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden; }
-.progress-fill { background: var(--green); height: 100%; width: 100%; transition: 0.3s; }
+function addData() { 
+    const amtEl = document.getElementById("amount"); if(!amtEl) return;
+    const a = Number(amtEl.value); 
+    if(!a){ alert("金額を入力してください"); return; }
+    
+    data.push({ 
+        id: Date.now(), 
+        date: getV("date") || formatStr(new Date()), 
+        time: getV("time") || "12:00", 
+        timestamp: Date.now(), 
+        amount: a, 
+        type: getV("type"), 
+        category: getV("category") || "未分類", 
+        memo: "", 
+        actionLogText: "", 
+        status: 'confirmed' 
+    }); 
+    save(); 
+    render(); 
+    amtEl.value = ""; 
+    setV("category", ""); 
+}
 
-.manual-record .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
-input, select { width: 100%; padding: 14px; background: #f2f2f7; border: 1px solid transparent; border-radius: 8px; font-size: 15px; margin-bottom: 10px; color: var(--text-dark); font-weight: 500; }
-input:focus, select:focus { outline: none; border-color: var(--blue); background: #fff; }
-.record-btn { background: #34c759; color: white; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; margin-top: 5px; cursor: pointer; }
+function render() {
+    const l = document.getElementById("list"); if(l) l.innerHTML = ""; 
+    const c = calculateCurrentBudget(); 
+    
+    if(l) {
+        const filtered = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped');
+        if(filtered.length === 0){
+            l.innerHTML = `<div style="text-align:center; padding:20px; color:#8e8e93; font-size:13px;">記録はまだありません</div>`;
+        } else {
+            filtered.sort((a,b)=>(b.date+" "+b.time).localeCompare(a.date+" "+a.time)).forEach(d => {
+                const tc = d.type === 'expense' ? 'expense' : 'income';
+                const sign = d.type === 'expense' ? '-' : '+';
+                const v = document.createElement("div"); 
+                v.className = "item"; 
+                v.innerHTML = `<div><small style="color:#8e8e93;display:block;">${d.date}</small>${d.category||'未分類'}</div><div class="item-amount ${tc}">${sign}${d.amount.toLocaleString()}円</div>`; 
+                l.appendChild(v);
+            });
+        }
+    }
+    
+    setTxt("total", c.currentBalance.toLocaleString()+"円"); 
+    setTxt("todayBudget", (c.todayBudget > 0 ? c.todayBudget.toLocaleString() : 0) + "円");
+    setTxt("weekRemaining", (c.weekRemaining > 0 ? c.weekRemaining.toLocaleString() : 0) + "円");
+    updateMainProgressBar(c);
+}
 
-.item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-.item:last-child { border-bottom: none; }
-.item-amount { font-weight: bold; }
-.expense { color: var(--text-dark); }
-.income { color: var(--green); }
-
-.tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid var(--border); display: flex; height: 65px; padding-bottom: env(safe-area-inset-bottom); z-index: 100;}
-.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: var(--text-gray); font-weight: bold; cursor: pointer; }
-.tab.active { color: var(--blue); }
-.tab .icon { font-size: 20px; margin-bottom: 2px; filter: grayscale(100%); opacity: 0.5;}
-.tab.active .icon { filter: none; opacity: 1;}
-
-.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
-.modal-content { background: var(--card-bg); border-radius: 16px; padding: 20px; width: 100%; max-width: 400px; }
-.btn { flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; border: none; cursor: pointer; }
-.btn-muted { background: var(--border); color: var(--text-dark); }
-.btn-blue { background: var(--blue); color: white; }
+function updateMainProgressBar(c) {
+    let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0) || 1;
+    
+    const u = (bId, vId, aId, bM, cV) => { 
+        let b = document.getElementById(bId), v = document.getElementById(vId), a = document.getElementById(aId); 
+        if(!b || !v || !a) return;
+        
+        let used = bM - cV; 
+        
+        if(bM <= 0 && cV <= 0){
+            b.style.width = '0%'; b.style.background = '#e2e8f0'; v.innerText = '0%'; a.innerText = `0円`;
+        } else if(cV < 0){
+            b.style.width = '100%'; b.style.background = '#ff3b30'; v.innerText = '0%'; v.style.color = '#ff3b30'; a.innerText = `${used.toLocaleString()}円`;
+        } else {
+            let p = bM > 0 ? (cV/bM)*100 : 100; if(p > 100) p = 100;
+            b.style.width = p + '%'; v.innerText = Math.floor(p) + '%'; v.style.color = '#1c1c1e';
+            b.style.background = p > 50 ? '#34c759' : (p > 20 ? '#ffcc00' : '#ff3b30'); 
+            a.innerText = `${used.toLocaleString()}円`;
+        }
+    };
+    
+    u('bar-day', 'val-day', 'amt-day', c.budgetForToday, c.todayBudget); 
+    u('bar-week', 'val-week', 'amt-week', c.budgetForWeek, c.weekRemaining); 
+    u('bar-core', 'val-core', 'amt-core', tIn, c.currentBalance);
+}
 
 
