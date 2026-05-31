@@ -17,7 +17,7 @@
   <div id="page-main" class="page active">
     <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
       <span id="cycle-title">現在の実績</span>
-      <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 最終日変更</button>
+      <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 期間の変更</button>
     </h2>
     
     <div class="card total-box">
@@ -33,15 +33,15 @@
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
         <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS</div>
         <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[DAY] <span id="main-amt-day" class="metric-amt">0円</span></div><div id="main-val-day" class="metric-val">100%</div></div>
+            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[DAY] <span id="main-amt-day" class="metric-amt">0MB</span></div><div id="main-val-day" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[WEEK] <span id="main-amt-week" class="metric-amt">0円</span></div><div id="main-val-week" class="metric-val">100%</div></div>
+            <div class="metric-header"><div class="metric-label">[WEEK] <span id="main-amt-week" class="metric-amt">0MB</span></div><div id="main-val-week" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[CORE] <span id="main-amt-core" class="metric-amt">0円</span></div><div id="main-val-core" class="metric-val">100%</div></div>
+            <div class="metric-header"><div class="metric-label">[CORE] <span id="main-amt-core" class="metric-amt">0MB</span></div><div id="main-val-core" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
         </div>
     </div>
@@ -109,9 +109,9 @@
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">見積: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
             </div>
-            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">0円</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">0円</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">0円</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">0MB</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">0MB</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">0MB</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
         </div>
         <div class="card" style="padding:20px;">
             <div class="task-selector">
@@ -164,14 +164,19 @@
     </div>
 </div>
 
+<!-- ============ 期間設定が自由にできるようになったモーダル ============ -->
 <div id="cycle-edit-modal" class="modal-overlay">
     <div class="modal-content">
-        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの最終日変更</h3>
-        <p style="font-size:12px; color:#666;">給料日が前倒しになる場合など、今サイクルの「最終日(給料日の前日)」を設定できます。</p>
+        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの期間設定</h3>
+        <p style="font-size:12px; color:#666;">今サイクルの開始日と最終日をカスタム設定できます。</p>
         <input type="hidden" id="cycle-edit-key">
-        <input type="date" id="cycle-edit-date">
-        <button class="main-btn" style="background:#34C759;" onclick="saveCycleEnd()">設定を保存</button>
-        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (月末)</button>
+        <div style="display:flex; gap:10px; align-items:center; margin:15px 0;">
+            <input type="date" id="cycle-edit-start-date" style="margin:0; padding:10px;">
+            <span style="font-weight:bold; color:#8e8e93;">〜</span>
+            <input type="date" id="cycle-edit-date" style="margin:0; padding:10px;">
+        </div>
+        <button class="main-btn" style="background:#34C759; margin-top:0;" onclick="saveCycleEnd()">設定を保存</button>
+        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (前月末〜今月末)</button>
         <button class="main-btn" style="background:#ccc;" onclick="closeCycleEditModal()">キャンセル</button>
     </div>
 </div>
@@ -182,9 +187,8 @@
     <button class="tab-item" onclick="switchPage('fixed', this)">🗓️ FIXED</button>
 </nav>
 
-<script src="script.js?v=7.9"></script>
+<script src="script.js"></script>
 </body>
 </html>
-
 
 
