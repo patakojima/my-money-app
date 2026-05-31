@@ -1,3 +1,4 @@
+
 * { box-sizing: border-box; }
 :root { --primary: #007aff; --drink: #FF9500; --food: #34C759; --bg: #f0f2f5; --card: #ffffff; }
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); margin: 0; color: #333; height: 100vh; display: flex; flex-direction: column; }
