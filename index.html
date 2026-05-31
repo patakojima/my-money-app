@@ -1,188 +1,320 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Integrated Ops Terminal v7.7</title>
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERMINAL_MONEY_APP</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #111827;
+            --accent-green: #34C759;
+            --accent-yellow: #FFCC00;
+            --accent-red: #FF3B30;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #1f2937;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 70px; overflow-x: hidden; }
+        
+        .app-header { background: var(--panel-bg); padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .app-title { font-size: 16px; font-weight: bold; letter-spacing: 1px; color: var(--accent-green); font-family: monospace; }
+        
+        .page { display: none; padding: 15px; }
+        .page.active { display: block; }
+        
+        .panel { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .panel-title { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; }
+        
+        .meter-container { margin-bottom: 15px; }
+        .meter-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+        .meter-bar-bg { background: #1f2937; height: 12px; border-radius: 6px; overflow: hidden; position: relative; }
+        .meter-bar-fill { height: 100%; width: 0%; transition: width 0.3s, background-color 0.3s; }
+        .meter-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: monospace; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+        input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
+            width: 100%; background: #1f2937; border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 8px; font-size: 15px; outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent-green); }
+        
+        .btn { background: #007aff; color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; display: block; text-align: center; margin-top: 5px; }
+        .btn-green { background: var(--accent-green); }
+        .btn-red { background: var(--accent-red); }
+        .btn-muted { background: #4b5563; }
+        
+        .item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border-color); font-size: 14px; }
+        .item:last-child { border-bottom: none; }
+        .item-pending { border-left: 4px solid #ff9500; background: rgba(255,149,0,0.05); }
+        .badge-pending { background: #ff9500; color: black; font-size: 10px; padding: 2px 4px; border-radius: 4px; margin-right: 5px; font-weight: bold; }
+        
+        .terminal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+        .term-btn { background: #111827; border: 1px solid #334155; color: #38bdf8; padding: 15px; text-align: center; border-radius: 8px; font-family: monospace; font-size: 14px; font-weight: bold; }
+        .term-btn:active { background: #1e293b; }
+        .term-btn.active-f { background: rgba(56,189,248,0.1); border-color: #38bdf8; }
+        
+        .num-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
+        .num-btn { background: #1e293b; border: 1px solid var(--border-color); color: white; padding: 15px; text-align: center; border-radius: 8px; font-size: 16px; font-weight: bold; font-family: monospace; }
+        
+        .action-log-item { display: flex; justify-content: space-between; align-items: center; background: #0f172a; padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 12px; font-family: monospace; border-left: 3px solid #38bdf8; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
+        .modal-content { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; width: 100%; max-width: 400px; }
+        
+        .tab-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--panel-bg); border-top: 1px solid var(--border-color); display: flex; height: 60px; z-index: 100; }
+        .tab-item { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-muted); font-size: 11px; text-decoration: none; font-weight: bold; cursor: pointer;}
+        .tab-item.active { color: var(--accent-green); background: rgba(52,199,89,0.05); }
+        .tab-item span { font-size: 18px; margin-bottom: 2px; }
+    </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="sys-title" id="display-title">MAIN_DASHBOARD</div>
-    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>LIVE_LINK</div>
-</div>
-
-<div class="content">
-  <div id="page-main" class="page active">
-    <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
-      <span id="cycle-title">現在の実績</span>
-      <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 最終日変更</button>
-    </h2>
-    
-    <div class="card total-box">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高 (Balance)</div>
-      <div class="total-amount" id="total">0円</div>
-    </div>
-    <div class="card budget-info">
-      <div>今日の予算<span class="budget-val" id="todayBudget">0円</span></div>
-      <div style="border-left:1px solid #eee;"></div>
-      <div>今週の予算<span class="budget-val" id="weekRemaining">0円</span></div>
+    <div class="app-header">
+        <div class="app-title" id="display-title">MAIN_DASHBOARD</div>
+        <button onclick="downloadCSV()" style="background:none; border:1px solid var(--border-color); color:var(--text-muted); padding:6px 12px; border-radius:6px; font-size:12px; font-family:monospace;">CSV出力</button>
     </div>
 
-    <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
-        <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS</div>
-        <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[DAY] <span id="main-amt-day" class="metric-amt">0円</span></div><div id="main-val-day" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
+    <div id="page-main" class="page active">
+        <div class="panel">
+            <div class="panel-title">
+                <span id="cycle-title">現在の実績</span>
+                <span onclick="showCycleEditModal()" style="color:#007aff; cursor:pointer;">最終日変更</span>
+            </div>
+            
+            <div class="meter-container">
+                <div class="meter-label"><span>本日予算の残高</span><span id="main-val-day" style="font-weight:bold;">100%</span></div>
+                <div class="meter-bar-bg"><div id="main-bar-day" class="meter-bar-fill"></div></div>
+                <div class="meter-sub" id="main-amt-day">USED: 0 / MAX: 0</div>
+            </div>
+
+            <div class="meter-container">
+                <div class="meter-label"><span>今週予算の残高</span><span id="main-val-week" style="font-weight:bold;">100%</span></div>
+                <div class="meter-bar-bg"><div id="main-bar-week" class="meter-bar-fill"></div></div>
+                <div class="meter-sub" id="main-amt-week">USED: 0 / MAX: 0</div>
+            </div>
+
+            <div class="meter-container">
+                <div class="meter-label"><span>今月のプール残高</span><span id="main-val-core" style="font-weight:bold;">100%</span></div>
+                <div class="meter-bar-bg"><div id="main-bar-core" class="meter-bar-fill"></div></div>
+                <div class="meter-sub" id="main-amt-core">USED: 0 / MAX: 0</div>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; margin-top:15px; border-top:1px dashed var(--border-color); padding-top:10px;">
+                <span style="font-size:13px; color:var(--text-muted);">現在の純残高:</span>
+                <span id="total" style="font-weight:bold; color:var(--accent-green); font-size:16px; font-family:monospace;">0円</span>
+            </div>
         </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[WEEK] <span id="main-amt-week" class="metric-amt">0円</span></div><div id="main-val-week" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
+
+        <div class="panel">
+            <div class="panel-title">クイックデータ記録</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <input type="date" id="date">
+                <input type="time" id="time" value="12:00">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 2fr; gap:8px; margin-bottom:8px;">
+                <select id="type">
+                    <option value="expense">支出</option>
+                    <option value="income">収入</option>
+                </select>
+                <input type="number" id="amount" placeholder="金額 (円)" inputmode="numeric">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <input type="text" id="category" placeholder="カテゴリ (例: 食費)">
+                <input type="text" id="memo" placeholder="メモ">
+            </div>
+            <button class="btn btn-green" onclick="executeAddData()">データを記録する</button>
         </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[CORE] <span id="main-amt-core" class="metric-amt">0円</span></div><div id="main-val-core" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
-        </div>
-    </div>
 
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">手動記録</div>
-      <div style="display:flex; gap:10px;"><input type="date" id="date" style="flex:2;"><input type="time" id="time" style="flex:1;"></div>
-      <input type="number" id="amount" placeholder="金額" inputmode="numeric">
-      <select id="type"><option value="expense">支出</option><option value="income">収入</option></select>
-      <input type="text" id="category" placeholder="カテゴリ"><input type="text" id="memo" placeholder="メモ">
-      <button class="main-btn" onclick="addData()">データを記録</button>
-    </div>
-
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">店舗プリセット</div>
-      <input type="hidden" id="edit-store-id"><input type="text" id="store-name" placeholder="店名">
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[Task A] D1単価</div><input type="number" id="price-a" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[Task B] D2単価</div><input type="number" id="price-b" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-      </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="store-save-btn" class="main-btn" style="background:#666; margin-top:0;" onclick="saveStore()">新規追加</button>
-          <button id="store-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditStore()">キャンセル</button>
-      </div>
-      <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
-    </div>
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
-        <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
-        <button onclick="downloadCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1);">📥 CSV出力</button>
-    </div>
-    
-    <div class="card" id="list" style="margin-top:8px;"></div>
-  </div>
-
-  <div id="page-fixed" class="page">
-    <h2>毎月の予定（テンプレート）</h2>
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">テンプレート登録・編集</div>
-      <input type="hidden" id="edit-tpl-id">
-      <div style="display:flex; gap:10px;"><input type="number" id="tpl-day" placeholder="日(1〜31)" inputmode="numeric" style="flex:1;"><input type="time" id="tpl-time" value="10:00" style="flex:1;"></div>
-      <select id="tpl-type"><option value="income">収入</option><option value="expense">支出</option></select>
-      <input type="number" id="tpl-amount" placeholder="金額" inputmode="numeric">
-      <input type="text" id="tpl-category" placeholder="カテゴリ"><input type="text" id="tpl-memo" placeholder="メモ">
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="tpl-save-btn" class="main-btn" style="margin-top:0;" onclick="saveTemplate()">追加</button>
-          <button id="tpl-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditTemplate()">キャンセル</button>
-      </div>
-    </div>
-    <div class="card"><div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div><div id="template-list-ui"></div></div>
-  </div>
-
-  <div id="page-terminal" class="page">
-    <div id="project-selector-area" class="card">
-        <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">SELECT_ACTIVE_PROJECT</div>
-        <select id="active-project-id"></select>
-    </div>
-    <div id="active-terminal-area" style="display:none;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D</div><div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div></div>
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F</div><div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div></div>
-        </div>
-        <div class="card" style="margin-top:-5px; background:#f4f4f5; border:1px solid #e5e5ea;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">見積: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
-                <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
-            </div>
-            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">0円</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">0円</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">0円</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
-        </div>
-        <div class="card" style="padding:20px;">
-            <div class="task-selector">
-                <button class="task-btn" onclick="commitTaskA()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task A</b><span id="label-price-a">0</span></button>
-                <button class="task-btn" onclick="commitTaskB()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task B</b><span id="label-price-b">0</span></button>
-                <button id="btn-task-f" class="task-btn" onclick="selectTaskF()"><b>Task F</b><span>MANUAL</span></button>
-            </div>
-            <div class="num-grid">
-                <button class="num-btn" onclick="commitNum(3)">③</button><button class="num-btn" onclick="commitNum(4)">④</button><button class="num-btn" onclick="commitNum(5)">⑤</button>
-                <button class="num-btn" onclick="commitNum(6)">⑥</button><button class="num-btn" onclick="commitNum(7)">⑦</button><button class="num-btn" onclick="commitNum(8)">⑧</button>
-                <button class="num-btn" onclick="commitNum(9)">⑨</button><button class="num-btn" onclick="commitNum(10)">⑩</button><button class="num-btn" onclick="commitNum(11)">⑪</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div class="extra-toggle"><button id="ext-btn-d" class="ext-btn active-d" onclick="setExtraMode('D')">D</button><button id="ext-btn-f" class="ext-btn" onclick="setExtraMode('F')">F</button></div>
-                <input type="number" id="extra-cost" placeholder="金額を直接入力" inputmode="numeric" style="margin:0;">
-                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra Cost</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div style="display:flex; gap:8px;"><input type="text" id="stealth-memo-input" placeholder="メモ" style="margin:0;"><button class="main-btn" style="margin:0; width:80px; background:#34C759;" onclick="addStealthMemo()">記録</button></div>
-            </div>
-            <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div><div id="action-log-list" class="action-log-list"></div>
-            </div>
-            <button class="main-btn" style="background:#ff3b30; padding:18px; margin-top:20px;" onclick="showCheckout()">COMPLETE_PROJECT (会計)</button>
-            <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
+        <div class="panel">
+            <div class="panel-title">今サイクルの履歴・予定</div>
+            <div id="list"></div>
         </div>
     </div>
-  </div>
-</div>
 
-<div id="checkout-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px;">Final Accounting</h3>
-        <input type="number" id="final-amount" placeholder="最終金額" inputmode="numeric">
-        <button class="main-btn" onclick="finishProject()">確定して記録</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCheckout()">キャンセル</button>
+
+    <div id="page-terminal" class="page">
+        <div class="panel" style="background:#020617; border-color:#1e293b;">
+            <div class="form-group">
+                <label style="color:#38bdf8; font-family:monospace;">SELECT TARGET PRODUCT / STORE</label>
+                <select id="active-project-id" onchange="handleProjectSelection()"></select>
+            </div>
+            
+            <div id="active-terminal-area" style="display:none; margin-top:15px;">
+                
+                <div style="background:#0f172a; padding:12px; border-radius:8px; border:1px solid #1e293b; font-family:monospace; font-size:13px; color:#38bdf8; margin-bottom:15px; line-height:1.4;">
+                    <div id="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
+                    <div style="margin-top:8px; display:flex; justify-content:space-between; border-top:1px dashed #1e293b; padding-top:6px; font-weight:bold; color:white;">
+                        <span>D-COUNT: <span id="mock-d-count" style="color:#ec4899;">0</span></span>
+                        <span>F-COUNT: <span id="mock-f-count" style="color:#eab308;">0</span></span>
+                        <span>TOTAL: <span id="mock-total-val" style="color:#22c55e;">0</span></span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 15px; border: 1px dashed #334155; padding: 10px; border-radius: 8px;">
+                    <div class="meter-container" style="margin-bottom:8px;">
+                        <div class="meter-label"><span style="color:#64748b;">[SYS_DAY]</span> <span id="val-day" style="color:white;">100%</span></div>
+                        <div class="meter-bar-bg"><div id="bar-day" class="meter-bar-fill"></div></div>
+                        <div class="meter-sub" id="amt-day">USED: 0 / MAX: 0</div>
+                    </div>
+                    <div class="meter-container" style="margin-bottom:8px;">
+                        <div class="meter-label"><span style="color:#64748b;">[SYS_WEEK]</span> <span id="val-week" style="color:white;">100%</span></div>
+                        <div class="meter-bar-bg"><div id="bar-week" class="meter-bar-fill"></div></div>
+                        <div class="meter-sub" id="amt-week">USED: 0 / MAX: 0</div>
+                    </div>
+                    <div class="meter-container" style="margin-bottom:0;">
+                        <div class="meter-label"><span style="color:#64748b;">[SYS_CORE]</span> <span id="val-core" style="color:white;">100%</span></div>
+                        <div class="meter-bar-bg"><div id="bar-core" class="meter-bar-fill"></div></div>
+                        <div class="meter-sub" id="amt-core">USED: 0 / MAX: 0</div>
+                    </div>
+                </div>
+
+                <div class="terminal-grid">
+                    <button class="term-btn" onclick="commitTaskA()">TASK A<br>(D1: <span id="label-price-a">0</span>)</button>
+                    <button class="term-btn" onclick="commitTaskB()">TASK B<br>(D2: <span id="label-price-b">0</span>)</button>
+                </div>
+
+                <div class="terminal-grid" style="grid-template-columns: 3fr 1fr;">
+                    <button class="term-btn" id="btn-task-f" onclick="selectTaskF()" style="color:#eab308; border-color:#4e3e18;">TASK F (AWAITING VALUE)</button>
+                    <button class="term-btn" onclick="undoLast()" style="color:#ef4444; border-color:#451a1a;">UNDO</button>
+                </div>
+
+                <div class="num-pad">
+                    <button class="num-btn" onclick="commitNum(1)">1</button>
+                    <button class="num-btn" onclick="commitNum(2)">2</button>
+                    <button class="num-btn" onclick="commitNum(3)">3</button>
+                    <button class="num-btn" onclick="commitNum(4)">4</button>
+                    <button class="num-btn" onclick="commitNum(5)">5</button>
+                    <button class="num-btn" onclick="commitNum(6)">6</button>
+                    <button class="num-btn" onclick="commitNum(7)">7</button>
+                    <button class="num-btn" onclick="commitNum(8)">8</button>
+                    <button class="num-btn" onclick="commitNum(9)">9</button>
+                </div>
+
+                <div class="panel" style="background:#090d16; border-color:#1e293b; padding:10px;">
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <button id="ext-btn-d" class="term-btn style-btn active-d" onclick="setExtraMode('D')" style="flex:1; padding:8px; font-size:11px;">MODE: D</button>
+                        <button id="ext-btn-f" class="term-btn style-btn" onclick="setExtraMode('F')" style="flex:1; padding:8px; font-size:11px;">MODE: F</button>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <input type="number" id="extra-cost" placeholder="直接数値を入力(円)" inputmode="numeric" style="flex:2; padding:8px; font-size:13px; background:#0f172a;">
+                        <button class="btn btn-green" onclick="addExtra()" style="flex:1; padding:8px; font-size:13px; margin:0;">追加</button>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:6px; margin-bottom:15px;">
+                    <input type="text" id="stealth-memo-input" placeholder="システムログ用メモを入力..." style="background:#0f172a; padding:10px; font-size:13px;">
+                    <button class="btn btn-muted" onclick="addStealthMemo()" style="width:70px; margin:0; font-size:13px; padding:10px;">記録</button>
+                </div>
+
+                <div id="action-log-area" style="display:none; margin-bottom:15px;">
+                    <div style="font-size:11px; color:#64748b; font-family:monospace; margin-bottom:6px;">CURRENT RUNNING LOGS:</div>
+                    <div id="action-log-list"></div>
+                </div>
+
+                <button class="btn btn-green" onclick="showCheckout()" style="padding:15px; font-size:16px;">🏁 確定シークエンスを実行</button>
+            </div>
+        </div>
     </div>
-</div>
 
-<div id="detail-modal" class="modal-overlay"><div class="modal-content" id="detail-content"></div></div>
 
-<div id="stealth-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px;">ログの編集</h3>
-        <input type="hidden" id="stealth-edit-id">
-        <input type="text" id="stealth-edit-label" placeholder="内容">
-        <input type="number" id="stealth-edit-cost" placeholder="金額" inputmode="numeric">
-        <button class="main-btn" onclick="saveActionEdit()">保存</button>
-        <button class="main-btn" style="background:#ccc;" onclick="document.getElementById('stealth-edit-modal').style.display='none'">キャンセル</button>
+    <div id="page-template" class="page">
+        <div class="panel">
+            <div class="panel-title">店舗・製品プリセット登録</div>
+            <input type="hidden" id="edit-store-id">
+            <div class="form-group"><input type="text" id="store-name" placeholder="店舗名・製品名"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                <input type="number" id="price-a" placeholder="D1単価(円)" inputmode="numeric">
+                <input type="number" id="price-b" placeholder="D2単価(円)" inputmode="numeric">
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button id="store-cancel-btn" class="btn btn-muted" onclick="cancelEditStore()" style="display:none; flex:1; margin:0;">キャンセル</button>
+                <button id="store-save-btn" class="btn" onclick="saveStore()" style="flex:2; margin:0;">新規追加</button>
+            </div>
+            <div id="store-list-ui" style="margin-top:15px;"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">固定支出・収入 (自動サイクル生成)</div>
+            <input type="hidden" id="edit-tpl-id">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <input type="number" id="tpl-day" placeholder="日付 (1-31)" min="1" max="31" inputmode="numeric">
+                <input type="time" id="tpl-time" value="10:00">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 2fr; gap:8px; margin-bottom:8px;">
+                <select id="tpl-type">
+                    <option value="expense">支出</option>
+                    <option value="income">収入</option>
+                </select>
+                <input type="number" id="tpl-amount" placeholder="金額 (円)" inputmode="numeric">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                <input type="text" id="tpl-category" placeholder="カテゴリ名">
+                <input type="text" id="tpl-memo" placeholder="メモ">
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button id="tpl-cancel-btn" class="btn btn-muted" onclick="cancelEditTemplate()" style="display:none; flex:1; margin:0;">キャンセル</button>
+                <button id="tpl-save-btn" class="btn btn-green" onclick="saveTemplate()" style="flex:2; margin:0;">テンプレート追加</button>
+            </div>
+            <div id="template-list-ui" style="margin-top:15px;"></div>
+        </div>
     </div>
-</div>
 
-<div id="cycle-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの最終日変更</h3>
-        <p style="font-size:12px; color:#666;">給料日が前倒しになる場合など、今サイクルの「最終日(給料日の前日)」を設定できます。</p>
-        <input type="hidden" id="cycle-edit-key">
-        <input type="date" id="cycle-edit-date">
-        <button class="main-btn" style="background:#34C759;" onclick="saveCycleEnd()">設定を保存</button>
-        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (月末)</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCycleEditModal()">キャンセル</button>
+
+    <div id="cycle-edit-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:12px; font-size:15px;">サイクル最終日のカスタム設定</h3>
+            <input type="hidden" id="cycle-edit-key">
+            <div class="form-group"><label>最終日(締め日)を指定</label><input type="date" id="cycle-edit-date"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:15px;">
+                <button class="btn btn-muted" onclick="closeCycleEditModal()">閉じる</button>
+                <button class="btn" onclick="saveCycleEnd()">保存する</button>
+            </div>
+            <button class="btn btn-red" onclick="resetCycleEnd()" style="margin-top:8px; font-size:12px; padding:6px;">設定を初期化（デフォルトに戻す）</button>
+        </div>
     </div>
-</div>
 
-<nav class="tab-bar">
-    <button class="tab-item active" onclick="switchPage('main', this)">📊 MAIN</button>
-    <button class="tab-item" onclick="switchPage('terminal', this)">🛰️ TERMINAL</button>
-    <button class="tab-item" onclick="switchPage('fixed', this)">🗓️ FIXED</button>
-</nav>
+    <div id="detail-modal" class="modal">
+        <div class="modal-content" id="detail-content"></div>
+    </div>
 
-<script src="script.js?v=7.9"></script>
+    <div id="checkout-modal" class="modal" style="background:rgba(2,6,17,0.9);">
+        <div class="modal-content" style="border-color:#1e293b;">
+            <h3 style="margin-bottom:10px; color:#38bdf8; font-family:monospace; font-size:15px;">⚡ CONFIRM OPERATION</h3>
+            <div class="form-group">
+                <label style="color:#64748b;">FINAL TRANSFER AMOUNT (JPY)</label>
+                <input type="number" id="final-amount" inputmode="numeric" style="background:#0f172a; font-size:20px; font-family:monospace; font-weight:bold; color:#22c55e;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:15px;">
+                <button class="btn btn-muted" onclick="closeCheckout()">CANCEL</button>
+                <button class="btn btn-green" onclick="finishProject()">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="stealth-edit-modal" class="modal" style="background:rgba(2,6,17,0.8);">
+        <div class="modal-content" style="border-color:#1e293b;">
+            <h3 style="margin-bottom:12px; color:#38bdf8; font-family:monospace; font-size:14px;">EDIT LOG ENTRY</h3>
+            <input type="hidden" id="stealth-edit-id">
+            <div class="form-group"><label style="color:#64748b;">LABEL</label><input type="text" id="stealth-edit-label" style="background:#0f172a;"></div>
+            <div class="form-group"><label style="color:#64748b;">COST (JPY)</label><input type="number" id="stealth-edit-cost" inputmode="numeric" style="background:#0f172a;"></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:15px;">
+                <button class="btn btn-muted" onclick="document.getElementById('stealth-edit-modal').style.display='none'">CANCEL</button>
+                <button class="btn" onclick="saveActionEdit()">SAVE</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="tab-bar">
+        <a class="tab-item active" onclick="switchPage('main', this)"><span>📊</span>MAIN</a>
+        <a class="tab-item" onclick="switchPage('terminal', this)"><span>⚡</span>TERMINAL</a>
+        <a class="tab-item" onclick="switchPage('template', this)"><span>🛠️</span>FIXED</a>
+    </div>
+
+    <script src="script.js"></script>
+
 </body>
 </html>
 
