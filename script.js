@@ -10,8 +10,10 @@ const formatStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 const parseDate = (s) => { if(!s) return new Date(); const p = s.split('-'); return new Date(p[0], p[1]-1, p[2]); };
 
 window.onload = () => { 
-    document.getElementById("date").value = formatStr(new Date()); 
-    document.getElementById('active-project-id').addEventListener('change', handleProjectSelection);
+    const dateEl = document.getElementById("date");
+    if(dateEl) dateEl.value = formatStr(new Date()); 
+    const sel = document.getElementById('active-project-id');
+    if(sel) sel.addEventListener('change', handleProjectSelection);
     renderTemplates(); render(); updateStoreUI(); loadTerminalDraft(); 
 };
 
@@ -30,6 +32,7 @@ function switchPage(pageId, el) {
     }
 }
 
+// 期間設定モーダル
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey; 
@@ -62,8 +65,8 @@ function renderTemplates() {
             <div><span style="color:#8e8e93;font-family:monospace;margin-right:5px;">${t.day}日</span><span style="color:${t.type==='expense'?'#dc3545':'#28a745'};font-weight:bold;">${t.type==='expense'?'[-]':'[+]'}</span> ${t.category}</div>
             <div style="display:flex; gap:6px; align-items:center;">
                 <span style="margin-right:6px; font-weight:bold;">${t.amount.toLocaleString()}円</span>
-                <button onclick="editTemplateUI(${t.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:bold;">編集</button>
-                <button onclick="delTemplate(${i})" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;font-weight:bold;">✖</button>
+                <button class="main-btn" onclick="editTemplateUI(${t.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;margin:0;">編集</button>
+                <button class="main-btn" onclick="delTemplate(${i})" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;margin:0;">✖</button>
             </div>
         </div>
     `).join(''); 
@@ -119,8 +122,7 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // ★修正: 手動入力・テンプレート問わず、status が 'pending' のものは今日・今週のメーターを減らさない
-                if(d.status!=='pending') { 
+                if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
                 } 
@@ -131,7 +133,7 @@ function calculateCurrentBudget() {
     
     let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
     let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
-    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekEndD.getDate() + 6);
+    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
     let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
     let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
     let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
@@ -146,25 +148,13 @@ function addData(obj) {
     if (obj && obj.id) { data.push(obj); save(); render(); return; } 
     const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
     
-    // チェックボックスにチェックが入っていたらステータスを 'pending' (予定) に、無ければ 'confirmed' (確定) にする
-    const isPendingChecked = document.getElementById("is-pending").checked;
-    const initialStatus = isPendingChecked ? 'pending' : 'confirmed';
+    const pendingEl = document.getElementById("is-pending");
+    const initialStatus = (pendingEl && pendingEl.checked) ? 'pending' : 'confirmed';
 
-    data.push({ 
-        id:Date.now(), 
-        date:document.getElementById("date").value, 
-        time:document.getElementById("time").value||"00:00", 
-        timestamp:Date.now(), 
-        amount:a, 
-        type:document.getElementById("type").value, 
-        category:document.getElementById("category").value, 
-        memo:document.getElementById("memo").value, 
-        actionLogText:"", 
-        status: initialStatus 
-    }); 
+    data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:initialStatus }); 
     save(); render(); 
     document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
-    document.getElementById("is-pending").checked = false; // 記録後はチェックを外す
+    if(pendingEl) pendingEl.checked = false;
 }
 
 function render() {
@@ -219,7 +209,7 @@ function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; docum
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
 function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
-function updateStoreUI() { document.getElementById('store-list-ui').innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">編集</button><button onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;">✖</button></div></div>`).join(''); }
+function updateStoreUI() { document.getElementById('store-list-ui').innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button class="main-btn" onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">編集</button><button class="main-btn" onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">✖</button></div></div>`).join(''); }
 
 function handleProjectSelection() { if(isSystemAction)return; activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); if(activeStore){ document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }else{ document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; } }
 function saveTerminalDraft() { if(activeStore)localStorage.setItem("terminalDraft",JSON.stringify({activeStore,mDCount,mFCount,mTotal,actionLog,currentExtraMode})); }
@@ -239,7 +229,9 @@ function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return
 function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
 
 function updateProgressBar() {
-    let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    let c=calculateCurrentBudget(); 
+    let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    
     const u=(bId,vId,aId,bM,cR,cS)=>{
         let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
         if(!b || !v || !a) return;
@@ -250,9 +242,9 @@ function updateProgressBar() {
 
         if(bM<=0&&fR<=0){
             b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText=textNormal;a.style.color='#8e8e93';
-        } else if(fR<0){
+        }else if(fR<0){
             b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=textOver;a.style.color='#ff3b30';
-        } else {
+        }else{
             let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;
             b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=textNormal;a.style.color='#1c1c1e';
         }
@@ -265,36 +257,54 @@ function updateProgressBar() {
 function updateTDisplay() { 
     document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
     updateProgressBar(); 
-    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
+    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none'; 
     for(let i=actionLog.length-1;i>=0;i--){ 
         const a=actionLog[i]; 
-        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
+        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`; 
     } 
     saveTerminalDraft(); 
 }
 function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
+
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
+
 function finishProject() { 
-    const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
-    addData({ id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), amount:amt, type:'expense', category:activeStore.name, memo:`D:${mDCount} F:${mFCount}`, actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), status:'confirmed' });
+    const amt=Number(document.getElementById('final-amount').value); if(!amt) return; 
+    addData({ 
+        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
+        amount:amt, type:'expense', category:activeStore.name, 
+        memo:`D:${mDCount} F:${mFCount}`, 
+        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
+        status:'confirmed' 
+    }); 
     alert("記録完了！"); closeCheckout(); localStorage.removeItem("terminalDraft"); 
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
 }
+
 function downloadCSV() {
     if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
-    const sortedData = [...data].sort((a,b) => ((b.date||\"\") + " " + (b.time||\"\")).localeCompare((a.date||\"\") + " " + (a.time||\"\")));
+    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `\"${(d.category || \"\").replace(/\"/g, '\"\"')}\"`; let memo = `\"${(d.memo || \"\").replace(/\"/g, '""')}\"`; let log = `\"${(d.actionLogText || \"\").replace(/\"/g, '\"\"').replace(/\\n/g, ' / ')}\"`;
-        csvContent += `${d.date||\""},${d.time||\""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
+        let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
+        let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
+        let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
-    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
-    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    const today = formatStr(new Date()).replace(/-/g, '');
+    const fileName = `money_data_${today}.csv`;
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", fileName);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
