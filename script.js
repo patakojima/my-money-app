@@ -10,8 +10,7 @@ const formatStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2
 const parseDate = (s) => { if(!s) return new Date(); const p = s.split('-'); return new Date(p[0], p[1]-1, p[2]); };
 
 window.onload = () => { 
-    const dateEl = document.getElementById("date");
-    if(dateEl) dateEl.value = formatStr(new Date()); 
+    document.getElementById("date").value = formatStr(new Date()); 
     const sel = document.getElementById('active-project-id');
     if(sel) sel.addEventListener('change', handleProjectSelection);
     renderTemplates(); render(); updateStoreUI(); loadTerminalDraft(); 
@@ -32,7 +31,6 @@ function switchPage(pageId, el) {
     }
 }
 
-// 期間設定モーダル
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey; 
@@ -122,6 +120,7 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
+                // ★ templateId（FIXEDからのデータ）がある場合は、確定されても永遠に今日・週の予算をスルーする！
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -147,11 +146,45 @@ function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
 function addData(obj) { 
     if (obj && obj.id) { data.push(obj); save(); render(); return; } 
     const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
-    
-    const pendingEl = document.getElementById("is-pending");
-    const initialStatus = (pendingEl && pendingEl.checked) ? 'pending' : 'confirmed';
 
-    data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:initialStatus }); 
+    const pendingEl = document.getElementById("is-pending");
+    const isPending = pendingEl && pendingEl.checked;
+    const initialStatus = isPending ? 'pending' : 'confirmed';
+
+    let tId = null;
+
+    // ★追加：チェックが入っていたら、自動的にFIXEDテンプレートにも登録する（同時に目印のIDを発行）
+    if (isPending) {
+        tId = Date.now() + Math.floor(Math.random() * 1000);
+        let inputDate = document.getElementById("date").value;
+        let dObj = parseDate(inputDate);
+        fixedTemplates.push({
+            id: tId,
+            day: dObj.getDate(),
+            time: document.getElementById("time").value || "12:00",
+            type: document.getElementById("type").value,
+            amount: a,
+            category: document.getElementById("category").value || "未分類",
+            memo: document.getElementById("memo").value
+        });
+        localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
+        renderTemplates();
+    }
+
+    data.push({ 
+        id: Date.now(), 
+        templateId: tId, // 目印（これが付いていると確定後も今日予算をスルー）
+        date: document.getElementById("date").value, 
+        time: document.getElementById("time").value||"00:00", 
+        timestamp: Date.now(), 
+        amount: a, 
+        type: document.getElementById("type").value, 
+        category: document.getElementById("category").value || "未分類", 
+        memo: document.getElementById("memo").value, 
+        actionLogText: "", 
+        status: initialStatus 
+    }); 
+    
     save(); render(); 
     document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
     if(pendingEl) pendingEl.checked = false;
@@ -229,22 +262,19 @@ function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return
 function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
 
 function updateProgressBar() {
-    let c=calculateCurrentBudget(); 
-    let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    
+    let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     const u=(bId,vId,aId,bM,cR,cS)=>{
         let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
         if(!b || !v || !a) return;
-        let fR=cR-cS;
-        let used = bM - fR;
+        let fR=cR-cS; let used = bM - fR;
         let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
         let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
 
         if(bM<=0&&fR<=0){
             b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText=textNormal;a.style.color='#8e8e93';
-        }else if(fR<0){
+        } else if(fR<0){
             b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=textOver;a.style.color='#ff3b30';
-        }else{
+        } else {
             let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;
             b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=textNormal;a.style.color='#1c1c1e';
         }
@@ -257,32 +287,23 @@ function updateProgressBar() {
 function updateTDisplay() { 
     document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
     updateProgressBar(); 
-    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none'; 
+    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
     for(let i=actionLog.length-1;i>=0;i--){ 
         const a=actionLog[i]; 
-        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`; 
+        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     } 
     saveTerminalDraft(); 
 }
 function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
-
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
-
 function finishProject() { 
-    const amt=Number(document.getElementById('final-amount').value); if(!amt) return; 
-    addData({ 
-        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
-        amount:amt, type:'expense', category:activeStore.name, 
-        memo:`D:${mDCount} F:${mFCount}`, 
-        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
-        status:'confirmed' 
-    }); 
+    const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
+    addData({ id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), amount:amt, type:'expense', category:activeStore.name, memo:`D:${mDCount} F:${mFCount}`, actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), status:'confirmed' });
     alert("記録完了！"); closeCheckout(); localStorage.removeItem("terminalDraft"); 
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
 }
-
 function downloadCSV() {
     if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
@@ -290,21 +311,12 @@ function downloadCSV() {
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
-        let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
-        let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
         csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, '');
-    const fileName = `money_data_${today}.csv`;
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
+    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
+    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
