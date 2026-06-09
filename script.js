@@ -30,7 +30,6 @@ function switchPage(pageId, el) {
     }
 }
 
-// 期間設定のモーダル処理
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey; 
@@ -52,8 +51,7 @@ function saveCycleEnd() {
 }
 function resetCycleEnd() { 
     let key = document.getElementById('cycle-edit-key').value; 
-    delete customStarts[key];
-    delete customEnds[key]; 
+    delete customStarts[key]; delete customEnds[key]; 
     localStorage.setItem("customCycleStarts", JSON.stringify(customStarts));
     localStorage.setItem("customCycleEnds", JSON.stringify(customEnds)); 
     closeCycleEditModal(); render(); 
@@ -76,44 +74,35 @@ function cancelEditTemplate() { document.getElementById('edit-tpl-id').value="";
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
 
-// サイクル計算（開始日と終了日をカスタム設定に対応）
 function getCycle(dObj=new Date()) { 
     const y=dObj.getFullYear(), m=dObj.getMonth();
-    
     let s = new Date(y, m, 0); 
     let e = new Date(y, m + 1, 0); e.setDate(e.getDate() - 1); 
-    
     let cycleKey = formatStr(s).substring(0, 7); 
     if (customStarts[cycleKey]) { s = parseDate(customStarts[cycleKey]); }
     if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
-    
     let nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
 
     if (formatStr(dObj) >= formatStr(nextP)) {
-        s = nextP;
-        let nextLd = new Date(y, m + 2, 0); 
-        e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
+        s = nextP; let nextLd = new Date(y, m + 2, 0); e = new Date(nextLd.getFullYear(), nextLd.getMonth(), nextLd.getDate() - 1);
         cycleKey = formatStr(new Date(y, m+1, 0)).substring(0, 7);
         if (customStarts[cycleKey]) { s = parseDate(customStarts[cycleKey]); }
         if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
         nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
     }
-    
     if (formatStr(dObj) < formatStr(s)) {
-        let prevLd = new Date(y, m, 0);
-        e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1);
-        s = new Date(y, m - 1, 0);
+        let prevLd = new Date(y, m, 0); e = new Date(prevLd.getFullYear(), prevLd.getMonth(), prevLd.getDate() - 1); s = new Date(y, m - 1, 0);
         cycleKey = formatStr(new Date(y, m-1, 0)).substring(0, 7);
         if (customStarts[cycleKey]) { s = parseDate(customStarts[cycleKey]); }
         if (customEnds[cycleKey]) { e = parseDate(customEnds[cycleKey]); }
         nextP = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
     }
-
     return { startStr:formatStr(s), endStr:formatStr(e), nextPayStr:formatStr(nextP), nextPayObj:nextP, cycleKey:cycleKey }; 
 }
 
 function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
 
+// ★ハイブリッド強化：テンプレートから生成されたデータは最初「pending(未確定)」としてサイクルに入れる
 function syncTemplatesWithCycle(calc) {
     let u=false;
     fixedTemplates.forEach(t => {
@@ -132,7 +121,7 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // まとめ買い等(pending)は確定するまで今日・今週のメーターを減らさない
+                // ★超重要ロジック: pending（未確定の予定）の場合は今日・今週のメーター消費（流動費）に含めない！
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -144,8 +133,7 @@ function calculateCurrentBudget() {
     
     let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
     let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
-    let tBud = dailyAvg - tSp;
-    let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
     let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
     let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
     let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
@@ -155,7 +143,13 @@ function calculateCurrentBudget() {
 }
 
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-function addData(obj) { if (obj && obj.id) { data.push(obj); save(); render(); return; } const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:'confirmed' }); save(); render(); document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; }
+function addData(obj) { 
+    if (obj && obj.id) { data.push(obj); save(); render(); return; } 
+    const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
+    // 手動入力されたものは最初はデフォルトで 'confirmed' (確定) とする
+    data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:'confirmed' }); 
+    save(); render(); document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
+}
 
 function render() {
     const l=document.getElementById("list"); l.innerHTML=""; const c=calculateCurrentBudget(); document.getElementById("cycle-title").innerText=`現在の実績 (${c.cycleText})`; syncTemplatesWithCycle(c);
@@ -189,7 +183,18 @@ function updateMainProgressBar(c) {
     u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
 }
 
-function showDetail(id) { const d=data.find(x=>x.id===id); if(!d)return; const p=d.status==='pending'; let btns = p ? `<button class="main-btn" style="background:#34C759;margin-bottom:10px;padding:16px;" onclick="confirmRecord(${id})">✅ 確定にする</button><div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`; document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; document.getElementById('detail-modal').style.display='flex'; }
+// ★予定確認＆確定シークエンスの拡張：履歴の「予定」データをタップしたとき、ワンタップで「確定」に昇格できるUIを追加
+function showDetail(id) { 
+    const d=data.find(x=>x.id===id); if(!d)return;
+    const p=d.status==='pending'; 
+    let btns = p 
+        ? `<button class="main-btn" style="background:#34C759;margin-bottom:10px;padding:16px;" onclick="confirmRecord(${id})">✅ 確定にする</button>
+           <div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` 
+        : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`; 
+        
+    document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
+    document.getElementById('detail-modal').style.display = 'flex'; 
+}
 function updateRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].date=document.getElementById('edit-date').value; data[i].time=document.getElementById('edit-time').value; data[i].type=document.getElementById('edit-type').value; data[i].amount=Number(document.getElementById('edit-amount').value); data[i].category=document.getElementById('edit-category').value; data[i].memo=document.getElementById('edit-memo').value; data[i].actionLogText=document.getElementById('edit-actionlog').value; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
@@ -219,22 +224,19 @@ function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return
 function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
 
 function updateProgressBar() {
-    let c=calculateCurrentBudget(); 
-    let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    
+    let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     const u=(bId,vId,aId,bM,cR,cS)=>{
         let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
         if(!b || !v || !a) return;
-        let fR=cR-cS;
-        let used = bM - fR;
+        let fR=cR-cS; let used = bM - fR;
         let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
         let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
 
         if(bM<=0&&fR<=0){
             b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText=textNormal;a.style.color='#8e8e93';
-        }else if(fR<0){
+        } else if(fR<0){
             b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=textOver;a.style.color='#ff3b30';
-        }else{
+        } else {
             let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;
             b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=textNormal;a.style.color='#1c1c1e';
         }
@@ -247,32 +249,24 @@ function updateProgressBar() {
 function updateTDisplay() { 
     document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
     updateProgressBar(); 
-    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none'; 
+    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
     for(let i=actionLog.length-1;i>=0;i--){ 
         const a=actionLog[i]; 
-        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`; 
+        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     } 
     saveTerminalDraft(); 
 }
+/* CSV出力やその他バックエンド関数は元のロジックを100%維持 */
 function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
-
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
-
 function finishProject() { 
-    const amt=Number(document.getElementById('final-amount').value); if(!amt) return; 
-    addData({ 
-        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
-        amount:amt, type:'expense', category:activeStore.name, 
-        memo:`D:${mDCount} F:${mFCount}`, 
-        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
-        status:'confirmed' 
-    }); 
+    const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
+    addData({ id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), amount:amt, type:'expense', category:activeStore.name, memo:`D:${mDCount} F:${mFCount}`, actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), status:'confirmed' });
     alert("記録完了！"); closeCheckout(); localStorage.removeItem("terminalDraft"); 
     document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
     switchPage('main',document.querySelector('.tab-item')); 
 }
-
 function downloadCSV() {
     if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
@@ -280,29 +274,13 @@ function downloadCSV() {
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
-        let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
-        let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
         csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, '');
-    const fileName = `money_data_${today}.csv`;
-    if (navigator.share) {
-        const file = new File([blob], fileName, { type: 'text/csv' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({ files: [file] }).catch(err => console.log('キャンセルされました:', err));
-            return;
-        }
-    }
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
+    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
+    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
 
