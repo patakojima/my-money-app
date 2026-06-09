@@ -43,8 +43,7 @@ function saveCycleEnd() {
     let sStr = document.getElementById('cycle-edit-start-date').value;
     let dStr = document.getElementById('cycle-edit-date').value; 
     if(!sStr || !dStr) return; 
-    customStarts[key] = sStr;
-    customEnds[key] = dStr; 
+    customStarts[key] = sStr; customEnds[key] = dStr; 
     localStorage.setItem("customCycleStarts", JSON.stringify(customStarts));
     localStorage.setItem("customCycleEnds", JSON.stringify(customEnds)); 
     closeCycleEditModal(); render(); 
@@ -102,7 +101,6 @@ function getCycle(dObj=new Date()) {
 
 function getCycleDateForDay(tDay, sStr, eStr) { let c=parseDate(sStr), e=parseDate(eStr), fb=null, sc=0; while(c<=e && sc<40){ if(c.getDate()==tDay)return formatStr(c); let n=new Date(c); n.setDate(c.getDate()+1); if(c.getMonth()!==n.getMonth())fb=formatStr(c); c=n; sc++; } return fb||formatStr(e); }
 
-// ★ハイブリッド強化：テンプレートから生成されたデータは最初「pending(未確定)」としてサイクルに入れる
 function syncTemplatesWithCycle(calc) {
     let u=false;
     fixedTemplates.forEach(t => {
@@ -121,8 +119,8 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // ★超重要ロジック: pending（未確定の予定）の場合は今日・今週のメーター消費（流動費）に含めない！
-                if(!d.templateId && d.status!=='pending') { 
+                // ★修正: 手動入力・テンプレート問わず、status が 'pending' のものは今日・今週のメーターを減らさない
+                if(d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
                 } 
@@ -133,7 +131,7 @@ function calculateCurrentBudget() {
     
     let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
     let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
-    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekEndD.getDate() + 6);
     let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
     let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
     let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
@@ -143,12 +141,30 @@ function calculateCurrentBudget() {
 }
 
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
+
 function addData(obj) { 
     if (obj && obj.id) { data.push(obj); save(); render(); return; } 
     const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
-    // 手動入力されたものは最初はデフォルトで 'confirmed' (確定) とする
-    data.push({ id:Date.now(), date:document.getElementById("date").value, time:document.getElementById("time").value||"00:00", timestamp:Date.now(), amount:a, type:document.getElementById("type").value, category:document.getElementById("category").value, memo:document.getElementById("memo").value, actionLogText:"", status:'confirmed' }); 
-    save(); render(); document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
+    
+    // チェックボックスにチェックが入っていたらステータスを 'pending' (予定) に、無ければ 'confirmed' (確定) にする
+    const isPendingChecked = document.getElementById("is-pending").checked;
+    const initialStatus = isPendingChecked ? 'pending' : 'confirmed';
+
+    data.push({ 
+        id:Date.now(), 
+        date:document.getElementById("date").value, 
+        time:document.getElementById("time").value||"00:00", 
+        timestamp:Date.now(), 
+        amount:a, 
+        type:document.getElementById("type").value, 
+        category:document.getElementById("category").value, 
+        memo:document.getElementById("memo").value, 
+        actionLogText:"", 
+        status: initialStatus 
+    }); 
+    save(); render(); 
+    document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
+    document.getElementById("is-pending").checked = false; // 記録後はチェックを外す
 }
 
 function render() {
@@ -183,7 +199,6 @@ function updateMainProgressBar(c) {
     u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
 }
 
-// ★予定確認＆確定シークエンスの拡張：履歴の「予定」データをタップしたとき、ワンタップで「確定」に昇格できるUIを追加
 function showDetail(id) { 
     const d=data.find(x=>x.id===id); if(!d)return;
     const p=d.status==='pending'; 
@@ -228,7 +243,8 @@ function updateProgressBar() {
     const u=(bId,vId,aId,bM,cR,cS)=>{
         let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
         if(!b || !v || !a) return;
-        let fR=cR-cS; let used = bM - fR;
+        let fR=cR-cS;
+        let used = bM - fR;
         let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
         let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
 
@@ -256,7 +272,6 @@ function updateTDisplay() {
     } 
     saveTerminalDraft(); 
 }
-/* CSV出力やその他バックエンド関数は元のロジックを100%維持 */
 function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
@@ -270,17 +285,16 @@ function finishProject() {
 function downloadCSV() {
     if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
-    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
+    const sortedData = [...data].sort((a,b) => ((b.date||\"\") + " " + (b.time||\"\")).localeCompare((a.date||\"\") + " " + (a.time||\"\")));
     sortedData.forEach(d => {
         let type = d.type === 'income' ? '収入' : '支出';
         let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
-        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
+        let cat = `\"${(d.category || \"\").replace(/\"/g, '\"\"')}\"`; let memo = `\"${(d.memo || \"\").replace(/\"/g, '""')}\"`; let log = `\"${(d.actionLogText || \"\").replace(/\"/g, '\"\"').replace(/\\n/g, ' / ')}\"`;
+        csvContent += `${d.date||\""},${d.time||\""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
     if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
     const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
-
 
