@@ -52,6 +52,12 @@
       <input type="number" id="amount" placeholder="金額" inputmode="numeric">
       <select id="type"><option value="expense">支出</option><option value="income">収入</option></select>
       <input type="text" id="category" placeholder="カテゴリ"><input type="text" id="memo" placeholder="メモ">
+      
+      <div style="display:flex; align-items:center; gap:8px; margin: 10px 4px 5px; font-size:14px; font-weight:bold; color:#555;">
+          <input type="checkbox" id="is-pending" style="width:20px; height:20px; margin:0; cursor:pointer;">
+          <label for="is-pending" style="cursor:pointer; color:#FF9500;">あとで確定（まとめ買い・今日予算から除外）</label>
+      </div>
+
       <button class="main-btn" onclick="addData()">データを記録</button>
     </div>
 
@@ -164,7 +170,6 @@
     </div>
 </div>
 
-<!-- ============ 期間設定が自由にできるようになったモーダル ============ -->
 <div id="cycle-edit-modal" class="modal-overlay">
     <div class="modal-content">
         <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの期間設定</h3>
@@ -190,5 +195,4 @@
 <script src="script.js"></script>
 </body>
 </html>
-
 
