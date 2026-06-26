@@ -202,7 +202,6 @@ function updateMainProgressBar() {
         let used = bM - fR;
         let unit = isTerminalMode ? "MB" : "円";
         
-        // 言語と単位の完璧な切り替え
         let labelNormal = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
         let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過 (支出 {u} / 予算 {m})";
 
@@ -222,19 +221,18 @@ function updateMainProgressBar() {
         }
     };
     
-    // MAIN用メーター更新 (isTerminalMode = false, 見積額無視)
     if (!isTerm) {
         u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
         u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
         u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
     } else {
-        // TERMINAL用メーター更新 (isTerminalMode = true, 見積額加算)
         u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
         u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
         u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
     }
 }
 
+// ★ 編集画面(detail-modal) にもFIXED登録用のチェックボックスを追加
 function showDetail(id) { 
     const d=data.find(x=>x.id===id); if(!d)return;
     const p=d.status==='pending'; 
@@ -243,10 +241,47 @@ function showDetail(id) {
            <div style="display:flex;gap:10px;"><button class="main-btn" style="flex:1;" onclick="updateRecord(${id})">更新</button><button class="main-btn" style="flex:1;background:#8e8e93;" onclick="skipRecord(${id})">スキップ</button></div>` 
         : `<button class="main-btn" onclick="updateRecord(${id})">保存</button><button class="main-btn" style="background:#ff3b30;" onclick="deleteRecord(${id})">削除</button>`; 
         
-    document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
+    let templateUi = '';
+    if(d.templateId) {
+        templateUi = `<div style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:13px; font-weight:bold; color:#34C759;"><span style="font-size:16px;">📌</span> <span>FIXED(固定費) 連携済み</span></div>`;
+    } else {
+        templateUi = `<label style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;"><input type="checkbox" id="edit-is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;"><span style="padding-top:2px;">FIXED(固定費)に登録して保留</span></label>`;
+    }
+
+    document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${templateUi}${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
     document.getElementById('detail-modal').style.display = 'flex'; 
 }
-function updateRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].date=document.getElementById('edit-date').value; data[i].time=document.getElementById('edit-time').value; data[i].type=document.getElementById('edit-type').value; data[i].amount=Number(document.getElementById('edit-amount').value); data[i].category=document.getElementById('edit-category').value; data[i].memo=document.getElementById('edit-memo').value; data[i].actionLogText=document.getElementById('edit-actionlog').value; save(); render(); document.getElementById('detail-modal').style.display='none'; }
+
+function updateRecord(id) { 
+    const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
+    data[i].date=document.getElementById('edit-date').value; 
+    data[i].time=document.getElementById('edit-time').value; 
+    data[i].type=document.getElementById('edit-type').value; 
+    data[i].amount=Number(document.getElementById('edit-amount').value); 
+    data[i].category=document.getElementById('edit-category').value; 
+    data[i].memo=document.getElementById('edit-memo').value; 
+    data[i].actionLogText=document.getElementById('edit-actionlog').value; 
+
+    // ★ 追加：編集画面のチェックボックスでFIXEDにぶち込む処理
+    const pendingEl = document.getElementById('edit-is-pending');
+    if (pendingEl && pendingEl.checked && !data[i].templateId) {
+        let tId = Date.now() + Math.floor(Math.random() * 1000);
+        let dObj = parseDate(data[i].date);
+        fixedTemplates.push({
+            id: tId, day: dObj.getDate(), time: data[i].time || "12:00",
+            type: data[i].type, amount: data[i].amount, category: data[i].category || "未分類",
+            memo: data[i].memo
+        });
+        localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
+        renderTemplates();
+
+        data[i].templateId = tId;
+        data[i].status = 'pending'; // 保留にする（予算回復）
+    }
+    
+    save(); render(); document.getElementById('detail-modal').style.display='none'; 
+}
+
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 function deleteRecord(id) { if(!confirm("削除しますか？"))return; const i=data.findIndex(x=>x.id===id); if(data[i].templateId)data[i].status='deleted'; else data.splice(i,1); save(); render(); document.getElementById('detail-modal').style.display='none'; }
@@ -309,4 +344,5 @@ function downloadCSV() {
     if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
     const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
+
 
