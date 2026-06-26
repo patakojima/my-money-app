@@ -21,7 +21,7 @@
     </h2>
     
     <div class="card total-box">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高 (Balance)</div>
+      <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高</div>
       <div class="total-amount" id="total">0円</div>
     </div>
     <div class="card budget-info">
@@ -33,15 +33,15 @@
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
         <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">予算進捗メーター</div>
         <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[今日] <span id="main-amt-day" class="metric-amt">0円</span></div><div id="main-val-day" class="metric-val">100%</div></div>
+            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[今日] <span id="main-amt-day" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-day" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[今週] <span id="main-amt-week" class="metric-amt">0円</span></div><div id="main-val-week" class="metric-val">100%</div></div>
+            <div class="metric-header"><div class="metric-label">[今週] <span id="main-amt-week" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-week" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[今月] <span id="main-amt-core" class="metric-amt">0円</span></div><div id="main-val-core" class="metric-val">100%</div></div>
+            <div class="metric-header"><div class="metric-label">[今月] <span id="main-amt-core" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-core" class="metric-val">100%</div></div>
             <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
         </div>
     </div>
@@ -115,9 +115,9 @@
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">TOTAL_EST: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
             </div>
-            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">0MB</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">0MB</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">0MB</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
         </div>
         <div class="card" style="padding:20px;">
             <div class="task-selector">
