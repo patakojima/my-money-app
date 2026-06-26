@@ -20,6 +20,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
     document.getElementById('display-title').innerText = pageId==='main'?'メインダッシュボード':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
+    
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -27,9 +28,9 @@ function switchPage(pageId, el) {
             document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; 
             setExtraMode(currentExtraMode); updateTDisplay(); 
         } 
-        updateProgressBar(true); setTimeout(() => isSystemAction = false, 50); 
+        updateMainProgressBar(); setTimeout(() => isSystemAction = false, 50); 
     } else {
-        updateProgressBar(false);
+        updateMainProgressBar();
     }
 }
 
@@ -122,6 +123,7 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
+                // templateId(FIXEDからのデータ)がある場合は、確定されても今日・週の予算をスルー
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -153,18 +155,13 @@ function addData(obj) {
     const initialStatus = isPending ? 'pending' : 'confirmed';
 
     let tId = null;
-
     if (isPending) {
         tId = Date.now() + Math.floor(Math.random() * 1000);
         let inputDate = document.getElementById("date").value;
         let dObj = parseDate(inputDate);
         fixedTemplates.push({
-            id: tId,
-            day: dObj.getDate(),
-            time: document.getElementById("time").value || "12:00",
-            type: document.getElementById("type").value,
-            amount: a,
-            category: document.getElementById("category").value || "未分類",
+            id: tId, day: dObj.getDate(), time: document.getElementById("time").value || "12:00",
+            type: document.getElementById("type").value, amount: a, category: document.getElementById("category").value || "未分類",
             memo: document.getElementById("memo").value
         });
         localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
@@ -172,17 +169,9 @@ function addData(obj) {
     }
 
     data.push({ 
-        id: Date.now(), 
-        templateId: tId, 
-        date: document.getElementById("date").value, 
-        time: document.getElementById("time").value||"00:00", 
-        timestamp: Date.now(), 
-        amount: a, 
-        type: document.getElementById("type").value, 
-        category: document.getElementById("category").value || "未分類", 
-        memo: document.getElementById("memo").value, 
-        actionLogText: "", 
-        status: initialStatus 
+        id: Date.now(), templateId: tId, date: document.getElementById("date").value, time: document.getElementById("time").value||"00:00", 
+        timestamp: Date.now(), amount: a, type: document.getElementById("type").value, category: document.getElementById("category").value || "未分類", 
+        memo: document.getElementById("memo").value, actionLogText: "", status: initialStatus 
     }); 
     
     save(); render(); 
@@ -197,50 +186,46 @@ function render() {
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
     document.getElementById("total").innerText=c.currentBalance.toLocaleString()+"円"; document.getElementById("todayBudget").innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円"; document.getElementById("weekRemaining").innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
-    const isTerminal = document.getElementById('page-terminal').classList.contains('active');
-    updateMainProgressBar(isTerminal);
+    updateMainProgressBar();
 }
 
-function updateMainProgressBar(isTerminalMode = false) {
+function updateMainProgressBar() {
     let c = calculateCurrentBudget();
     let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     
-    // 単位とラベルの切り替え
-    let unit = isTerminalMode ? "MB" : "円";
-    let labelDay = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
-    let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過: {u} / 予算 {m}";
-
-    const u = (bId, vId, aId, bM, cV, cS = 0) => { 
+    const u = (bId, vId, aId, bM, cV, cS, isTerminal) => { 
         let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
         if(!b || !v || !a) return;
         
-        let fR = isTerminalMode ? (cV - cS) : cV; // TERMINALの場合は見積額(cS)を引く
+        let fR = isTerminal ? (cV - cS) : cV; 
         let used = bM - fR;
+        let unit = isTerminal ? "MB" : "円";
         
-        let textNormal = labelDay.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
-        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+        let textNormal = isTerminal ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit}` : `${fR.toLocaleString()}${unit}`;
+        let textOver = isTerminal ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit} (SWAP OVER)` : `${fR.toLocaleString()}${unit} (OVER)`;
 
         if (bM <= 0 && fR <= 0) {
-            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; a.innerText=textNormal; a.style.color='#8e8e93';
+            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
+            a.innerText = isTerminal ? `USED: 0MB / MAX: 0MB` : '0円'; a.style.color='#8e8e93';
         } else if (fR < 0) {
-            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
+            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
+            v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
         } else {
             let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
-            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
+            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
+            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
         }
     };
     
-    // MAIN用メーター更新 (見積額の影響は受けない)
-    u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0); 
-    u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0); 
-    u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0);
+    // MAIN用メーター更新 (Terminalフラグ=false)
+    u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
+    u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
+    u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
 
-    // TERMINAL用メーター更新 (現在選択中のTask見積額(mTotal)が引かれる)
-    if (isTerminalMode) {
-        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal); 
-        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal); 
-        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal);
-    }
+    // TERMINAL用メーター更新 (Terminalフラグ=true, 見積額考慮)
+    u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
+    u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
+    u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
 }
 
 function showDetail(id) { 
@@ -284,7 +269,7 @@ function saveActionEdit() { const id=Number(document.getElementById('stealth-edi
 
 function updateTDisplay() { 
     document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
-    updateProgressBar(true); 
+    updateMainProgressBar(); 
     const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
     for(let i=actionLog.length-1;i>=0;i--){ 
         const a=actionLog[i]; 
