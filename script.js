@@ -19,7 +19,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'メインダッシュボード':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'メインダッシュボード':(pageId==='terminal'?'TERMINAL_OP_V7.9':'テンプレート管理');
     
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
@@ -123,7 +123,7 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // templateId(FIXEDからのデータ)がある場合は、確定されても今日・週の予算をスルー
+                // templateId(FIXEDからのデータ)がある場合は確定されても今日・週の予算をスルー
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -192,21 +192,26 @@ function render() {
 function updateMainProgressBar() {
     let c = calculateCurrentBudget();
     let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    let isTerm = document.getElementById('page-terminal').classList.contains('active');
     
-    const u = (bId, vId, aId, bM, cV, cS, isTerminal) => { 
+    const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
         let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
         if(!b || !v || !a) return;
         
-        let fR = isTerminal ? (cV - cS) : cV; 
+        let fR = isTerminalMode ? (cR - cS) : cR; 
         let used = bM - fR;
-        let unit = isTerminal ? "MB" : "円";
+        let unit = isTerminalMode ? "MB" : "円";
         
-        let textNormal = isTerminal ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit}` : `${fR.toLocaleString()}${unit}`;
-        let textOver = isTerminal ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit} (SWAP OVER)` : `${fR.toLocaleString()}${unit} (OVER)`;
+        // 言語と単位の完璧な切り替え
+        let labelNormal = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
+        let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過 (支出 {u} / 予算 {m})";
+
+        let textNormal = labelNormal.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
 
         if (bM <= 0 && fR <= 0) {
             b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
-            a.innerText = isTerminal ? `USED: 0MB / MAX: 0MB` : '0円'; a.style.color='#8e8e93';
+            a.innerText = isTerminalMode ? 'USED: 0MB / MAX: 0MB' : '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
         } else if (fR < 0) {
             b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
             v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
@@ -217,15 +222,17 @@ function updateMainProgressBar() {
         }
     };
     
-    // MAIN用メーター更新 (Terminalフラグ=false)
-    u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
-    u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
-    u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
-
-    // TERMINAL用メーター更新 (Terminalフラグ=true, 見積額考慮)
-    u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
-    u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
-    u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
+    // MAIN用メーター更新 (isTerminalMode = false, 見積額無視)
+    if (!isTerm) {
+        u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
+        u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
+        u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
+    } else {
+        // TERMINAL用メーター更新 (isTerminalMode = true, 見積額加算)
+        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
+        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
+        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
+    }
 }
 
 function showDetail(id) { 
