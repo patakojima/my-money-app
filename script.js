@@ -19,7 +19,7 @@ window.onload = () => {
 function switchPage(pageId, el) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'MAIN_DASHBOARD':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
+    document.getElementById('display-title').innerText = pageId==='main'?'メインダッシュボード':(pageId==='terminal'?'TERMINAL_OP_V7.9':'TEMPLATE_MANAGER');
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
         if(activeStore) { 
@@ -27,7 +27,9 @@ function switchPage(pageId, el) {
             document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; 
             setExtraMode(currentExtraMode); updateTDisplay(); 
         } 
-        updateProgressBar(); setTimeout(() => isSystemAction = false, 50); 
+        updateProgressBar(true); setTimeout(() => isSystemAction = false, 50); 
+    } else {
+        updateProgressBar(false);
     }
 }
 
@@ -120,7 +122,6 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // ★ templateId（FIXEDからのデータ）がある場合は、確定されても永遠に今日・週の予算をスルーする！
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -153,7 +154,6 @@ function addData(obj) {
 
     let tId = null;
 
-    // ★追加：チェックが入っていたら、自動的にFIXEDテンプレートにも登録する（同時に目印のIDを発行）
     if (isPending) {
         tId = Date.now() + Math.floor(Math.random() * 1000);
         let inputDate = document.getElementById("date").value;
@@ -173,7 +173,7 @@ function addData(obj) {
 
     data.push({ 
         id: Date.now(), 
-        templateId: tId, // 目印（これが付いていると確定後も今日予算をスルー）
+        templateId: tId, 
         date: document.getElementById("date").value, 
         time: document.getElementById("time").value||"00:00", 
         timestamp: Date.now(), 
@@ -196,30 +196,51 @@ function render() {
         const p=d.status==='pending', cl=p?`item item-pending`:`item ${d.type}`, bd=p?`<span class="badge-pending">予定</span>`:'', tc=d.type==='expense'?'#dc3545':'#28a745';
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
-    document.getElementById("total").innerText=c.currentBalance.toLocaleString()+"円"; document.getElementById("todayBudget").innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円"; document.getElementById("weekRemaining").innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円"; updateMainProgressBar(c);
+    document.getElementById("total").innerText=c.currentBalance.toLocaleString()+"円"; document.getElementById("todayBudget").innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円"; document.getElementById("weekRemaining").innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
+    const isTerminal = document.getElementById('page-terminal').classList.contains('active');
+    updateMainProgressBar(isTerminal);
 }
 
-function updateMainProgressBar(c) {
-    let tIn=data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    const u=(bId,vId,aId,bM,cV)=>{ 
-        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId); 
-        if(!b || !v || !a) return;
-        let used = bM - cV;
-        let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
-        let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
+function updateMainProgressBar(isTerminalMode = false) {
+    let c = calculateCurrentBudget();
+    let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+    
+    // 単位とラベルの切り替え
+    let unit = isTerminalMode ? "MB" : "円";
+    let labelDay = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
+    let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過: {u} / 予算 {m}";
 
-        if(bM<=0&&cV<=0){
-            b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText=textNormal;a.style.color='#8e8e93';
-        }else if(cV<0){
-            b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=textOver;a.style.color='#ff3b30';
-        }else{
-            let p=bM>0?(cV/bM)*100:100;if(p>100)p=100;
-            b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=textNormal;a.style.color='#1c1c1e';
+    const u = (bId, vId, aId, bM, cV, cS = 0) => { 
+        let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
+        if(!b || !v || !a) return;
+        
+        let fR = isTerminalMode ? (cV - cS) : cV; // TERMINALの場合は見積額(cS)を引く
+        let used = bM - fR;
+        
+        let textNormal = labelDay.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+
+        if (bM <= 0 && fR <= 0) {
+            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; a.innerText=textNormal; a.style.color='#8e8e93';
+        } else if (fR < 0) {
+            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
+        } else {
+            let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
+            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
         }
     };
-    u('main-bar-day','main-val-day','main-amt-day',c.budgetForToday,c.todayBudget); 
-    u('main-bar-week','main-val-week','main-amt-week',c.budgetForWeek,c.weekRemaining); 
-    u('main-bar-core','main-val-core','main-amt-core',tIn,c.currentBalance);
+    
+    // MAIN用メーター更新 (見積額の影響は受けない)
+    u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0); 
+    u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0); 
+    u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0);
+
+    // TERMINAL用メーター更新 (現在選択中のTask見積額(mTotal)が引かれる)
+    if (isTerminalMode) {
+        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal); 
+        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal); 
+        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal);
+    }
 }
 
 function showDetail(id) { 
@@ -261,32 +282,9 @@ function removeActionById(id) { const i=actionLog.findIndex(a=>a.id===id); if(i>
 function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return; document.getElementById('stealth-edit-id').value=id; document.getElementById('stealth-edit-label').value=a.label; document.getElementById('stealth-edit-cost').value=a.cost; document.getElementById('stealth-edit-modal').style.display='flex'; }
 function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
 
-function updateProgressBar() {
-    let c=calculateCurrentBudget(); let tIn=data.filter(d=>d.date>=c.startStr&&d.date<c.nextPayStr&&d.type==='income'&&d.status!=='deleted'&&d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-    const u=(bId,vId,aId,bM,cR,cS)=>{
-        let b=document.getElementById(bId),v=document.getElementById(vId),a=document.getElementById(aId);
-        if(!b || !v || !a) return;
-        let fR=cR-cS; let used = bM - fR;
-        let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
-        let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
-
-        if(bM<=0&&fR<=0){
-            b.style.width='0%';b.style.background='#e5e5ea';v.innerText='0%';v.style.color='#8e8e93';a.innerText=textNormal;a.style.color='#8e8e93';
-        } else if(fR<0){
-            b.style.width='100%';b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)';v.innerText='OVER';v.style.color='#ff3b30';a.innerText=textOver;a.style.color='#ff3b30';
-        } else {
-            let p=bM>0?(fR/bM)*100:100;if(p>100)p=100;
-            b.style.width=p+'%';v.innerText=Math.floor(p)+'%';v.style.color='#1c1c1e';b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30');a.innerText=textNormal;a.style.color='#1c1c1e';
-        }
-    };
-    u('bar-day','val-day','amt-day',c.budgetForToday,c.todayBudget,mTotal); 
-    u('bar-week','val-week','amt-week',c.budgetForWeek,c.weekRemaining,mTotal); 
-    u('bar-core','val-core','amt-core',tIn,c.currentBalance,mTotal);
-}
-
 function updateTDisplay() { 
     document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
-    updateProgressBar(); 
+    updateProgressBar(true); 
     const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
     for(let i=actionLog.length-1;i>=0;i--){ 
         const a=actionLog[i]; 
