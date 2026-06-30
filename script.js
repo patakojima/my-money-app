@@ -8,10 +8,11 @@ let fixedTemplates = JSON.parse(localStorage.getItem("fixedTemplates")) || [];
 let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
 let customStarts = JSON.parse(localStorage.getItem("customCycleStarts")) || {}; 
 
-// V2 State
+// V2 State (drinkDepositMax も初期設定に追加)
 let v2_status = JSON.parse(localStorage.getItem("v2_status")) || {
     ticketRemaining: 5, ticketMax: 5, ticketBaseAmount: 2500,
-    foodDeposit: 30000, drinkDeposit: 10000
+    foodDeposit: 30000, foodDepositMax: 30000,
+    drinkDeposit: 10000, drinkDepositMax: 10000
 };
 let vault_accounts = JSON.parse(localStorage.getItem("vault_accounts")) || [
     {id: "v_cash", name: "財布の現金", balance: 0},
@@ -33,7 +34,6 @@ window.onload = () => {
     const sel = document.getElementById('active-project-id');
     if(sel) sel.addEventListener('change', handleProjectSelection);
     
-    // 収入/支出切り替えで「支出元」の表示を切り替え
     const typeSel = document.getElementById("type");
     if(typeSel) {
         typeSel.addEventListener("change", (e) => {
@@ -139,9 +139,7 @@ function removeVault(id) {
     saveVault(); renderVault(); render();
 }
 
-// ==========================================
-// Sync & Calc Logic (自由残高ベースの3層防衛システム)
-// ==========================================
+// Sync & Calc Logic
 function calcAppBalance() {
     return data.filter(d => d.status === 'confirmed')
                .reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
@@ -208,6 +206,8 @@ function saveV2Config() {
     v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
     
     v2_status.foodDepositMax = v2_status.foodDeposit;
+    v2_status.drinkDepositMax = v2_status.drinkDeposit; // ドリンクMAXも保存
+    
     if(v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
     saveV2(); render();
     alert("防衛ライン（設定）を更新しました！");
@@ -229,9 +229,6 @@ function transferFund() {
     alert(`¥${amt.toLocaleString()} を移管しました。`);
 }
 
-// ==========================================
-// 期間＆予定(FIXED) 処理
-// ==========================================
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey; 
@@ -316,20 +313,15 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
-// ==========================================
-// ★ 超重要: 3層防衛システム コア計算ロジック
-// ==========================================
 function calculateCurrentBudget() {
     const t = new Date(); t.setHours(0,0,0,0); const tStr = formatStr(t); const c = getCycle(t); 
 
     let appBal = data.filter(d => d.status === 'confirmed').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
-
     let pendingExpenses = data.filter(d => d.status === 'pending' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr).reduce((s, d) => s + d.amount, 0);
     
     let lockTickets = (v2_status.ticketRemaining || 0) * (v2_status.ticketBaseAmount || 0);
     let lockFood = v2_status.foodDeposit || 0;
     let lockDrinkPool = v2_status.drinkDeposit || 0;
-    
     let lockDrinkTotal = lockDrinkPool + lockTickets;
 
     let freeBalance = appBal - pendingExpenses - lockFood - lockDrinkTotal;
@@ -451,18 +443,15 @@ function render() {
     updateMainProgressBar();
 }
 
-// ★ USAGE（使用量）バーとして完全修正
+// ★ メーターのUSAGE（使用量）化 ＆ TERMINAL戦場専用メーター
 function updateMainProgressBar() {
     updateMainView();
 
     let c = calculateCurrentBudget();
     let termEl = document.getElementById('page-terminal');
     let isTerm = termEl ? termEl.classList.contains('active') : false;
-    
-    // TERMINAL用のCORE MAX値（自由残高の全体予算）
     let coreMax = c.freeBalance + c.monthFreeSp;
     
-    // 食費メーター (ここだけは「残り」を示す体力ゲージ型を維持)
     let fMax = v2_status.foodDepositMax || c.lockFood || 1;
     let fP = (c.lockFood / fMax) * 100;
     if(fP > 100) fP = 100; if(fP < 0) fP = 0;
@@ -474,49 +463,78 @@ function updateMainProgressBar() {
         document.getElementById('food-budget-val').innerText = '/ ¥' + fMax.toLocaleString();
     }
 
-    // 自由残高＆TERMINAL用の「使用量(USAGE)」バーの描画関数
-    const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
-        let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
-        if(!b || !v || !a) return;
-        
-        let fR = isTerminalMode ? (cR - cS) : cR; // 最終的に残るお金
-        let used = bM - fR; // 使ったお金
-        let unit = isTerminalMode ? "MB" : "円";
-        
-        let textNormal = isTerminalMode ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit}` : `支出 ${used.toLocaleString()}${unit} / 予算 ${bM.toLocaleString()}${unit}`;
-        let textOver = isTerminalMode ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit} (SWAP OVER)` : `予算超過 (支出 ${used.toLocaleString()}${unit} / 予算 ${bM.toLocaleString()}${unit})`;
-
-        if (bM <= 0 && fR <= 0) {
-            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
-            a.innerText = isTerminalMode ? 'USED: 0MB / MAX: 0MB' : '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
-        } else if (fR < 0) {
-            // 予算オーバー時
-            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
-            v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
-        } else {
-            // ★ ここを「使用割合（カラからスタートして伸びる）」に変更
-            let p = bM > 0 ? (used / bM) * 100 : 100;
-            if(p > 100) p = 100;
-            if(p < 0) p = 0;
-            b.style.width = p + '%'; 
-            v.innerText = Math.floor(p) + '%'; v.style.color='#1c1c1e'; 
-            
-            // ★ 色も逆転（少ない=安全な緑、多い=危険な赤）
-            b.style.background = p < 60 ? '#34C759' : (p < 85 ? '#FFCC00' : '#FF3B30'); 
-            a.innerText = textNormal; a.style.color='#1c1c1e';
-        }
-    };
-    
     if (!isTerm) {
-        // MAIN画面（0円からスタートして予算まで伸びる）
-        u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
-        u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
-        u('main-bar-core','main-val-core','main-amt-core', coreMax, c.freeBalance, 0, false);
+        // MAIN画面 (日常の自由予算メーター)
+        const uMain = (bId, vId, aId, maxVal, remainVal) => { 
+            let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
+            if(!b || !v || !a) return;
+            let used = maxVal - remainVal;
+            if (maxVal <= 0 && remainVal <= 0) {
+                b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
+                a.innerText = '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
+            } else if (remainVal < 0) {
+                b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
+                v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=`予算超過 (支出 ${used.toLocaleString()}円 / 予算 ${maxVal.toLocaleString()}円)`; a.style.color='#ff3b30';
+            } else {
+                let p = maxVal > 0 ? (used / maxVal) * 100 : 100;
+                if(p > 100) p = 100; if(p < 0) p = 0;
+                b.style.width = p + '%'; v.innerText = Math.floor(p) + '%'; v.style.color='#1c1c1e'; 
+                b.style.background = p < 60 ? '#34C759' : (p < 85 ? '#FFCC00' : '#FF3B30'); 
+                a.innerText = `支出 ${used.toLocaleString()}円 / 予算 ${maxVal.toLocaleString()}円`; a.style.color='#1c1c1e';
+            }
+        };
+        uMain('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget); 
+        uMain('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining); 
+        uMain('main-bar-core','main-val-core','main-amt-core', coreMax, c.freeBalance);
     } else {
-        // TERMINAL画面（同じく使用量ベース、COREのMAX値も修正）
-        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
-        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
-        u('bar-core','val-core','amt-core', coreMax, c.freeBalance, mTotal, true);
+        // ★ TERMINAL画面 (戦場専用メーター：リアルタイム連動)
+        let tMax = v2_status.ticketMax || 5;
+        let tRem = v2_status.ticketRemaining || 0;
+        let tUsed = tMax - tRem;
+        let pendingTicket = (mTotal > 0 && tRem > 0) ? 1 : 0;
+        
+        let dMax = v2_status.drinkDepositMax || v2_status.drinkDeposit || 10000;
+        let dRem = v2_status.drinkDeposit || 0;
+        let dUsed = dMax - dRem;
+        let ticketBase = v2_status.ticketBaseAmount || 2500;
+        let pendingDrink = 0;
+        if(mTotal > 0) {
+            if(tRem > 0) {
+                pendingDrink = mTotal > ticketBase ? mTotal - ticketBase : 0;
+            } else {
+                pendingDrink = mTotal;
+            }
+        }
+        
+        let fMax_term = v2_status.foodDepositMax || v2_status.foodDeposit || 30000;
+        let fRem_term = v2_status.foodDeposit || 0;
+        let fUsed_term = fMax_term - fRem_term;
+
+        const updateTermMeter = (bId, vId, aId, maxVal, usedVal, pendingVal, unit, name) => {
+            let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
+            if(!b || !v || !a) return;
+            
+            let totalUsed = usedVal + pendingVal;
+            
+            if (maxVal <= 0) {
+                b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
+                a.innerText = `USED: 0${unit} / MAX: 0${unit}`; a.style.color='#8e8e93';
+            } else if (totalUsed > maxVal) {
+                b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
+                v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=`USED: ${totalUsed.toLocaleString()}${unit} / MAX: ${maxVal.toLocaleString()}${unit} (OVER)`; a.style.color='#ff3b30';
+            } else {
+                let p = (totalUsed / maxVal) * 100;
+                if(p < 0) p = 0;
+                b.style.width = p + '%'; 
+                v.innerText = Math.floor(p) + '%'; v.style.color='#1c1c1e'; 
+                b.style.background = p < 60 ? '#34C759' : (p < 85 ? '#FFCC00' : '#FF3B30'); 
+                a.innerText = `USED: ${totalUsed.toLocaleString()}${unit} / MAX: ${maxVal.toLocaleString()}${unit}`; a.style.color='#1c1c1e';
+            }
+        };
+
+        updateTermMeter('term-bar-ticket', 'term-val-ticket', 'term-amt-ticket', tMax, tUsed, pendingTicket, '枚', 'TICKET');
+        updateTermMeter('term-bar-drink', 'term-val-drink', 'term-amt-drink', dMax, dUsed, pendingDrink, '円', 'DRINK_POOL');
+        updateTermMeter('term-bar-food', 'term-val-food', 'term-amt-food', fMax_term, fUsed_term, 0, '円', 'FOOD_POOL');
     }
 }
 
