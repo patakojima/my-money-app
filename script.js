@@ -196,18 +196,23 @@ function syncRealCash() {
 function loadV2ConfigUI() {
     const tBase = document.getElementById('cfg-t-base'); if(tBase) tBase.value = v2_status.ticketBaseAmount;
     const tMax = document.getElementById('cfg-t-max'); if(tMax) tMax.value = v2_status.ticketMax;
+    // 🎟️残数の入力欄を追加
+    const tRem = document.getElementById('cfg-t-rem'); if(tRem) tRem.value = v2_status.ticketRemaining;
     const fPool = document.getElementById('cfg-f-pool'); if(fPool) fPool.value = v2_status.foodDeposit;
     const dPool = document.getElementById('cfg-d-pool'); if(dPool) dPool.value = v2_status.drinkDeposit;
 }
 function saveV2Config() {
     v2_status.ticketBaseAmount = Number(document.getElementById('cfg-t-base').value) || 2500;
     v2_status.ticketMax = Number(document.getElementById('cfg-t-max').value) || 5;
+    // 🎟️残数もユーザーが自由に設定できるように変更
+    v2_status.ticketRemaining = Number(document.getElementById('cfg-t-rem').value) || 0;
     v2_status.foodDeposit = Number(document.getElementById('cfg-f-pool').value) || 0;
     v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
-    v2_status.foodDepositMax = v2_status.foodDeposit; // 更新時をMAX基準とする
+    
+    v2_status.foodDepositMax = v2_status.foodDeposit;
     if(v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
     saveV2(); render();
-    alert("設定を更新しました");
+    alert("防衛ライン（設定）を更新しました！");
 }
 function transferFund() {
     const amt = Number(prompt("食費POOLから飲み代POOLへ移管する金額を入力してください:", "3000"));
@@ -313,19 +318,27 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
+// ==========================================
+// ★ 超重要: 3層防衛システム コア計算ロジック
+// ==========================================
 function calculateCurrentBudget() {
     const t = new Date(); t.setHours(0,0,0,0); const tStr = formatStr(t); const c = getCycle(t); 
 
     // ① 現実の全財産（確定済み）
     let appBal = data.filter(d => d.status === 'confirmed').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
 
-    // ② 絶対触ってはいけないお金 (今サイクルの未確定FIXED支出 + POOL残額)
+    // ② 絶対触ってはいけないお金 (未確定の予定 + POOL + 【追加】チケットの価値)
     let pendingExpenses = data.filter(d => d.status === 'pending' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr).reduce((s, d) => s + d.amount, 0);
+    
+    // 【重要】チケットの価値（残数×単価）も、自由残高からは「無いもの（確保済み）」としてガッツリ引く！
+    let lockTickets = (v2_status.ticketRemaining || 0) * (v2_status.ticketBaseAmount || 0);
     let lockFood = v2_status.foodDeposit || 0;
-    let lockDrink = v2_status.drinkDeposit || 0;
+    let lockDrinkPool = v2_status.drinkDeposit || 0;
+    
+    let lockDrinkTotal = lockDrinkPool + lockTickets;
 
     // ③ 自由に使える残高 (① - ②)
-    let freeBalance = appBal - pendingExpenses - lockFood - lockDrink;
+    let freeBalance = appBal - pendingExpenses - lockFood - lockDrinkTotal;
 
     let cycleEndObj = parseDate(c.endStr); 
     let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; 
@@ -339,7 +352,8 @@ function calculateCurrentBudget() {
     data.forEach(d => {
         if (d.status === 'confirmed' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr) {
             let isPool = false;
-            if (d.memo && (d.memo.includes("POOL") || d.memo.includes("[FOOD_POOL]") || d.memo.includes("[DRINK_POOL]"))) isPool = true;
+            // メモにTICKETが含まれている（TERMINALの記録）もPOOL消費扱いなので除外
+            if (d.memo && (d.memo.includes("POOL") || d.memo.includes("TICKET") || d.memo.includes("[FOOD_POOL]") || d.memo.includes("[DRINK_POOL]"))) isPool = true;
             if (d.category === '資金繰り') isPool = true;
 
             if (!isPool && !d.templateId) { 
@@ -366,7 +380,7 @@ function calculateCurrentBudget() {
     bFW = weekFreeSp + (wRem > 0 ? wRem : 0);
 
     return { 
-        appBal, freeBalance, lockFood, lockDrink,
+        appBal, freeBalance, lockFood, lockDrinkTotal,
         todayBudget: tBud, weekRemaining: wRem, 
         budgetForToday: dailyAvg, budgetForWeek: bFW, 
         monthFreeSp, todayFreeSp, weekFreeSp,
@@ -749,3 +763,5 @@ function importCSV(event) {
     };
     reader.readAsText(file);
 }
+
+
