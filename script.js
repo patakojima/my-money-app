@@ -1,25 +1,57 @@
+// ==========================================
+// V2 Core State & Initialization
+// ==========================================
 let isSystemAction = false;
 let data = JSON.parse(localStorage.getItem("moneyData")) || [];
 let stores = JSON.parse(localStorage.getItem("storePresets")) || [];
 let fixedTemplates = JSON.parse(localStorage.getItem("fixedTemplates")) || [];
 let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
 let customStarts = JSON.parse(localStorage.getItem("customCycleStarts")) || {}; 
+
+// V2 State
+let v2_status = JSON.parse(localStorage.getItem("v2_status")) || {
+    ticketRemaining: 5, ticketMax: 5, ticketBaseAmount: 2500,
+    foodDeposit: 30000, drinkDeposit: 10000
+};
+let vault_accounts = JSON.parse(localStorage.getItem("vault_accounts")) || [
+    {id: "v_cash", name: "財布の現金", balance: 0},
+    {id: "v_bank", name: "メイン銀行", balance: 0}
+];
+
 let activeStore = null, mDCount = 0, mFCount = 0, mTotal = 0, actionLog = [], currentExtraMode = 'D'; 
 
 const formatStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const parseDate = (s) => { if(!s) return new Date(); const p = s.split('-'); return new Date(p[0], p[1]-1, p[2]); };
 
+function saveV2() { localStorage.setItem("v2_status", JSON.stringify(v2_status)); }
+function saveVault() { localStorage.setItem("vault_accounts", JSON.stringify(vault_accounts)); }
+function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
+
 window.onload = () => { 
     document.getElementById("date").value = formatStr(new Date()); 
     const sel = document.getElementById('active-project-id');
     if(sel) sel.addEventListener('change', handleProjectSelection);
-    renderTemplates(); render(); updateStoreUI(); loadTerminalDraft(); 
+    
+    initStealthEvents();
+    loadV2ConfigUI();
+    renderVault();
+    renderTemplates(); 
+    render(); 
+    updateStoreUI(); 
+    loadTerminalDraft(); 
 };
 
+// ==========================================
+// Navigation & Core Logic
+// ==========================================
 function switchPage(pageId, el) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); document.getElementById('page-' + pageId).classList.add('active');
-    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); if(el) el.classList.add('active');
-    document.getElementById('display-title').innerText = pageId==='main'?'メインダッシュボード':(pageId==='terminal'?'TERMINAL_OP_V7.9':'テンプレート管理');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); 
+    document.getElementById('page-' + pageId).classList.add('active');
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); 
+    if(el) el.classList.add('active');
+    
+    let titles = {'main':'大本営', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
+    document.getElementById('display-title').innerText = titles[pageId] || '';
     
     if(pageId === 'terminal') { 
         isSystemAction = true; updateStoreSelect(); 
@@ -30,10 +62,164 @@ function switchPage(pageId, el) {
         } 
         updateMainProgressBar(); setTimeout(() => isSystemAction = false, 50); 
     } else {
+        if(pageId === 'fixed') loadV2ConfigUI();
+        if(pageId === 'vault') renderVault();
         updateMainProgressBar();
     }
 }
 
+// Stealth Events
+let stealthTimer;
+function initStealthEvents() {
+    const area = document.getElementById('stealth-trigger-area');
+    const disp = document.getElementById('stealth-display');
+    const show = () => { stealthTimer = setTimeout(() => { disp.style.display='block'; }, 400); };
+    const hide = () => { clearTimeout(stealthTimer); disp.style.display='none'; };
+    
+    area.addEventListener('mousedown', show);
+    area.addEventListener('mouseup', hide);
+    area.addEventListener('mouseleave', hide);
+    area.addEventListener('touchstart', show, {passive:true});
+    area.addEventListener('touchend', hide);
+    area.addEventListener('touchcancel', hide);
+}
+
+// Vault Logic
+function renderVault() {
+    let total = 0;
+    const listUi = document.getElementById('vault-list-ui');
+    listUi.innerHTML = vault_accounts.map(v => {
+        total += Number(v.balance) || 0;
+        return `
+        <div class="vault-item">
+            <div style="flex:1; font-weight:bold; color:#1c1c1e;">${v.name}</div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="number" class="vault-input" inputmode="numeric" value="${v.balance}" onchange="updateVaultBalance('${v.id}', this.value)">
+                <button class="main-btn" style="background:#ff3b30; padding:12px; margin:0; width:45px; display:flex; justify-content:center; align-items:center;" onclick="removeVault('${v.id}')">✖</button>
+            </div>
+        </div>
+        `;
+    }).join('');
+    document.getElementById('vault-total').innerText = "¥" + total.toLocaleString();
+}
+function addVault() {
+    const name = document.getElementById('new-vault-name').value;
+    if(!name) return;
+    vault_accounts.push({ id: 'v_'+Date.now(), name: name, balance: 0 });
+    document.getElementById('new-vault-name').value = '';
+    saveVault(); renderVault(); render(); 
+}
+function updateVaultBalance(id, val) {
+    const v = vault_accounts.find(x => x.id === id);
+    if(v) { v.balance = Number(val) || 0; saveVault(); renderVault(); render(); }
+}
+function removeVault(id) {
+    if(!confirm("削除しますか？")) return;
+    vault_accounts = vault_accounts.filter(x => x.id !== id);
+    saveVault(); renderVault(); render();
+}
+
+// Sync & Calc Logic
+function calcAppBalance() {
+    return data.filter(d => d.status !== 'deleted' && d.status !== 'skipped').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
+}
+function calcVaultTotal() { return vault_accounts.reduce((s, v) => s + (Number(v.balance) || 0), 0); }
+
+function updateMainView() {
+    const appBal = calcAppBalance();
+    const vTotal = calcVaultTotal();
+    const diff = vTotal - appBal;
+    
+    const syncWarn = document.getElementById('sync-warning');
+    if (diff !== 0) {
+        syncWarn.style.display = 'block';
+        document.getElementById('sync-diff-text').innerText = `⚠️ 現実とのズレ: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}円`;
+    } else {
+        syncWarn.style.display = 'none';
+    }
+
+    const c = calculateCurrentBudget(); 
+    let wRem = c.weekRemaining;
+    let wBud = c.budgetForWeek;
+    
+    let p = wBud > 0 ? (wRem / wBud) * 100 : 0;
+    if(p > 100) p = 100; if(p < 0) p = 0;
+    
+    const foodBar = document.getElementById('food-bar');
+    if(foodBar) {
+        foodBar.style.width = p + '%';
+        foodBar.style.background = p > 50 ? '#34C759' : (p > 20 ? '#FFCC00' : '#FF3B30');
+        document.getElementById('food-rem-val').innerText = '¥' + wRem.toLocaleString();
+        document.getElementById('food-budget-val').innerText = '/ ¥' + wBud.toLocaleString();
+    }
+
+    const tInd = document.getElementById('ticket-indicator');
+    if(tInd) {
+        tInd.innerHTML = '';
+        for(let i=0; i<v2_status.ticketMax; i++) {
+            const isAvail = i < v2_status.ticketRemaining;
+            tInd.innerHTML += `<div style="width:28px; height:12px; border-radius:4px; background:${isAvail ? '#FF9500' : '#e5e5ea'}; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);"></div>`;
+        }
+    }
+
+    document.getElementById('st-food').innerText = v2_status.foodDeposit.toLocaleString();
+    document.getElementById('st-drink').innerText = v2_status.drinkDeposit.toLocaleString();
+}
+
+function syncRealCash() {
+    const diff = calcVaultTotal() - calcAppBalance();
+    if (diff === 0) return;
+
+    const type = diff > 0 ? 'income' : 'expense';
+    const amt = Math.abs(diff);
+    
+    data.push({
+        id: Date.now(), date: formatStr(new Date()), time: getT(), timestamp: Date.now(),
+        amount: amt, type: type, category: '使途不明金', memo: '現金過不足 / SYNCHRONIZE',
+        actionLogText: '', status: 'confirmed'
+    });
+    
+    v2_status.foodDeposit += diff; 
+    saveV2(); save(); render();
+}
+
+// V2 Config (FIXD)
+function loadV2ConfigUI() {
+    document.getElementById('cfg-t-base').value = v2_status.ticketBaseAmount;
+    document.getElementById('cfg-t-max').value = v2_status.ticketMax;
+    document.getElementById('cfg-f-pool').value = v2_status.foodDeposit;
+    document.getElementById('cfg-d-pool').value = v2_status.drinkDeposit;
+}
+function saveV2Config() {
+    v2_status.ticketBaseAmount = Number(document.getElementById('cfg-t-base').value) || 2500;
+    v2_status.ticketMax = Number(document.getElementById('cfg-t-max').value) || 5;
+    v2_status.foodDeposit = Number(document.getElementById('cfg-f-pool').value) || 0;
+    v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
+    if(v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
+    saveV2(); render();
+    alert("設定を更新しました");
+}
+function transferFund() {
+    const amt = Number(prompt("食費POOLから飲み代POOLへ移管する金額を入力してください:", "3000"));
+    if(!amt || amt <= 0) return;
+    
+    v2_status.foodDeposit -= amt;
+    v2_status.drinkDeposit += amt;
+    saveV2();
+    
+    data.push({
+        id: Date.now(), date: formatStr(new Date()), time: getT(), timestamp: Date.now(),
+        amount: 0, type: 'expense', category: '資金繰り', memo: `FOOD ➔ DRINK (¥${amt.toLocaleString()})`,
+        actionLogText: '', status: 'confirmed'
+    });
+    save(); loadV2ConfigUI(); render();
+    alert(`¥${amt.toLocaleString()} を移管しました。`);
+}
+
+
+// ==========================================
+// V1 Legacy & General Logic
+// ==========================================
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
     document.getElementById('cycle-edit-key').value = c.cycleKey; 
@@ -123,7 +309,6 @@ function calculateCurrentBudget() {
         if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
             if(d.type==='expense'){ 
                 cEx+=d.amount; 
-                // templateId(FIXEDからのデータ)がある場合は確定されても今日・週の予算をスルー
                 if(!d.templateId && d.status!=='pending') { 
                     if(d.date===tStr) tSp+=d.amount; 
                     if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
@@ -144,11 +329,15 @@ function calculateCurrentBudget() {
     return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
 }
 
-function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
-
 function addData(obj) { 
     if (obj && obj.id) { data.push(obj); save(); render(); return; } 
     const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
+    const typeVal = document.getElementById("type").value;
+
+    // V2: 通常の手動入力はFOOD_POOLを増減させる
+    if (typeVal === 'expense') v2_status.foodDeposit -= a;
+    else v2_status.foodDeposit += a;
+    saveV2();
 
     const pendingEl = document.getElementById("is-pending");
     const isPending = pendingEl && pendingEl.checked;
@@ -161,7 +350,7 @@ function addData(obj) {
         let dObj = parseDate(inputDate);
         fixedTemplates.push({
             id: tId, day: dObj.getDate(), time: document.getElementById("time").value || "12:00",
-            type: document.getElementById("type").value, amount: a, category: document.getElementById("category").value || "未分類",
+            type: typeVal, amount: a, category: document.getElementById("category").value || "未分類",
             memo: document.getElementById("memo").value
         });
         localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
@@ -170,7 +359,7 @@ function addData(obj) {
 
     data.push({ 
         id: Date.now(), templateId: tId, date: document.getElementById("date").value, time: document.getElementById("time").value||"00:00", 
-        timestamp: Date.now(), amount: a, type: document.getElementById("type").value, category: document.getElementById("category").value || "未分類", 
+        timestamp: Date.now(), amount: a, type: typeVal, category: document.getElementById("category").value || "未分類", 
         memo: document.getElementById("memo").value, actionLogText: "", status: initialStatus 
     }); 
     
@@ -180,59 +369,51 @@ function addData(obj) {
 }
 
 function render() {
-    const l=document.getElementById("list"); l.innerHTML=""; const c=calculateCurrentBudget(); document.getElementById("cycle-title").innerText=`現在の実績 (${c.cycleText})`; syncTemplatesWithCycle(c);
+    const l=document.getElementById("list"); if(!l) return;
+    l.innerHTML=""; const c=calculateCurrentBudget(); 
+    document.getElementById("cycle-title").innerText=`大本営 (${c.cycleText})`; 
+    syncTemplatesWithCycle(c);
     data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped').sort((a,b)=>(b.date+" "+b.time).localeCompare(a.date+" "+a.time)).forEach(d => {
         const p=d.status==='pending', cl=p?`item item-pending`:`item ${d.type}`, bd=p?`<span class="badge-pending">予定</span>`:'', tc=d.type==='expense'?'#dc3545':'#28a745';
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
-    document.getElementById("total").innerText=c.currentBalance.toLocaleString()+"円"; document.getElementById("todayBudget").innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円"; document.getElementById("weekRemaining").innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
     updateMainProgressBar();
 }
 
 function updateMainProgressBar() {
+    updateMainView();
+
     let c = calculateCurrentBudget();
-    let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     let isTerm = document.getElementById('page-terminal').classList.contains('active');
     
-    const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
-        let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
-        if(!b || !v || !a) return;
-        
-        let fR = isTerminalMode ? (cR - cS) : cR; 
-        let used = bM - fR;
-        let unit = isTerminalMode ? "MB" : "円";
-        
-        let labelNormal = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
-        let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過 (支出 {u} / 予算 {m})";
+    if (isTerm) {
+        let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
+        const u = (bId, vId, aId, bM, cR, cS) => { 
+            let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
+            if(!b || !v || !a) return;
+            let fR = cR - cS; 
+            let used = bM - fR;
+            let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
+            let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
 
-        let textNormal = labelNormal.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
-        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
-
-        if (bM <= 0 && fR <= 0) {
-            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
-            a.innerText = isTerminalMode ? 'USED: 0MB / MAX: 0MB' : '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
-        } else if (fR < 0) {
-            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
-            v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
-        } else {
-            let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
-            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
-            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
-        }
-    };
-    
-    if (!isTerm) {
-        u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
-        u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
-        u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
-    } else {
-        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
-        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
-        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
+            if (bM <= 0 && fR <= 0) {
+                b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
+                a.innerText = 'USED: 0MB / MAX: 0MB'; a.style.color='#8e8e93';
+            } else if (fR < 0) {
+                b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
+                v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
+            } else {
+                let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
+                b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
+                b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
+            }
+        };
+        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal); 
+        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal); 
+        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal);
     }
 }
 
-// ★ 編集画面(detail-modal) にもFIXED登録用のチェックボックスを追加
 function showDetail(id) { 
     const d=data.find(x=>x.id===id); if(!d)return;
     const p=d.status==='pending'; 
@@ -245,7 +426,7 @@ function showDetail(id) {
     if(d.templateId) {
         templateUi = `<div style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:13px; font-weight:bold; color:#34C759;"><span style="font-size:16px;">📌</span> <span>FIXED(固定費) 連携済み</span></div>`;
     } else {
-        templateUi = `<label style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;"><input type="checkbox" id="edit-is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;"><span style="padding-top:2px;">FIXED(固定費)に登録して保留</span></label>`;
+        templateUi = `<label style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;"><input type="checkbox" id="edit-is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;"><span style="padding-top:2px;">FIXEDに登録して保留</span></label>`;
     }
 
     document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${templateUi}${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
@@ -262,7 +443,6 @@ function updateRecord(id) {
     data[i].memo=document.getElementById('edit-memo').value; 
     data[i].actionLogText=document.getElementById('edit-actionlog').value; 
 
-    // ★ 追加：編集画面のチェックボックスでFIXEDにぶち込む処理
     const pendingEl = document.getElementById('edit-is-pending');
     if (pendingEl && pendingEl.checked && !data[i].templateId) {
         let tId = Date.now() + Math.floor(Math.random() * 1000);
@@ -274,11 +454,9 @@ function updateRecord(id) {
         });
         localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
         renderTemplates();
-
         data[i].templateId = tId;
-        data[i].status = 'pending'; // 保留にする（予算回復）
+        data[i].status = 'pending'; 
     }
-    
     save(); render(); document.getElementById('detail-modal').style.display='none'; 
 }
 
@@ -322,13 +500,39 @@ function updateTDisplay() {
 function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
+
+// V2: TERMINAL会計処理 (チケット消費とDRINK_POOL引き落とし)
 function finishProject() { 
     const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
-    addData({ id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), amount:amt, type:'expense', category:activeStore.name, memo:`D:${mDCount} F:${mFCount}`, actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), status:'confirmed' });
-    alert("記録完了！"); closeCheckout(); localStorage.removeItem("terminalDraft"); 
-    document.getElementById('active-terminal-area').style.display='none'; document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
-    switchPage('main',document.querySelector('.tab-item')); 
+    
+    let ticketBase = v2_status.ticketBaseAmount;
+    let usedTicket = 0;
+    let poolDeduct = amt;
+
+    if (v2_status.ticketRemaining > 0) {
+        usedTicket = 1;
+        v2_status.ticketRemaining -= 1;
+        poolDeduct = amt > ticketBase ? amt - ticketBase : 0;
+    }
+    v2_status.drinkDeposit -= poolDeduct;
+    saveV2();
+
+    let termMemo = `D:${mDCount} F:${mFCount} | TICKET -${usedTicket} / POOL -${poolDeduct} CONFIRMED`;
+
+    addData({ 
+        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
+        amount:amt, type:'expense', category:activeStore.name, memo:termMemo, 
+        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
+        status:'confirmed' 
+    });
+    
+    alert(`記録完了 (TICKET -${usedTicket} / DRINK_POOL -${poolDeduct}円)`); 
+    closeCheckout(); localStorage.removeItem("terminalDraft"); 
+    document.getElementById('active-terminal-area').style.display='none'; 
+    document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
+    switchPage('main', document.querySelector('.tab-item')); 
 }
+
 function downloadCSV() {
     if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
     let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
@@ -344,5 +548,3 @@ function downloadCSV() {
     if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
     const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
-
-
