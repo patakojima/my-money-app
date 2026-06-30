@@ -50,7 +50,7 @@ function switchPage(pageId, el) {
     document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); 
     if(el) el.classList.add('active');
     
-    let titles = {'main':'大本営', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
+    let titles = {'main':'メインダッシュボード', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
     document.getElementById('display-title').innerText = titles[pageId] || '';
     
     if(pageId === 'terminal') { 
@@ -334,7 +334,6 @@ function addData(obj) {
     const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
     const typeVal = document.getElementById("type").value;
 
-    // V2: 通常の手動入力はFOOD_POOLを増減させる
     if (typeVal === 'expense') v2_status.foodDeposit -= a;
     else v2_status.foodDeposit += a;
     saveV2();
@@ -371,7 +370,7 @@ function addData(obj) {
 function render() {
     const l=document.getElementById("list"); if(!l) return;
     l.innerHTML=""; const c=calculateCurrentBudget(); 
-    document.getElementById("cycle-title").innerText=`大本営 (${c.cycleText})`; 
+    document.getElementById("cycle-title").innerText=`現在の実績 (${c.cycleText})`; 
     syncTemplatesWithCycle(c);
     data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped').sort((a,b)=>(b.date+" "+b.time).localeCompare(a.date+" "+a.time)).forEach(d => {
         const p=d.status==='pending', cl=p?`item item-pending`:`item ${d.type}`, bd=p?`<span class="badge-pending">予定</span>`:'', tc=d.type==='expense'?'#dc3545':'#28a745';
@@ -385,32 +384,45 @@ function updateMainProgressBar() {
 
     let c = calculateCurrentBudget();
     let isTerm = document.getElementById('page-terminal').classList.contains('active');
+    let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     
-    if (isTerm) {
-        let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
-        const u = (bId, vId, aId, bM, cR, cS) => { 
-            let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
-            if(!b || !v || !a) return;
-            let fR = cR - cS; 
-            let used = bM - fR;
-            let textNormal = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB`;
-            let textOver = `USED: ${used.toLocaleString()}MB / MAX: ${bM.toLocaleString()}MB (SWAP OVER)`;
+    // プログレスバーの共通描画ロジック
+    const u = (bId, vId, aId, bM, cR, cS, isTerminalMode) => { 
+        let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
+        if(!b || !v || !a) return;
+        
+        let fR = isTerminalMode ? (cR - cS) : cR; 
+        let used = bM - fR;
+        let unit = isTerminalMode ? "MB" : "円";
+        
+        let labelNormal = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
+        let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過 (支出 {u} / 予算 {m})";
 
-            if (bM <= 0 && fR <= 0) {
-                b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
-                a.innerText = 'USED: 0MB / MAX: 0MB'; a.style.color='#8e8e93';
-            } else if (fR < 0) {
-                b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
-                v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
-            } else {
-                let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
-                b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
-                b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
-            }
-        };
-        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal); 
-        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal); 
-        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal);
+        let textNormal = labelNormal.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+
+        if (bM <= 0 && fR <= 0) {
+            b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
+            a.innerText = isTerminalMode ? 'USED: 0MB / MAX: 0MB' : '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
+        } else if (fR < 0) {
+            b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
+            v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
+        } else {
+            let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
+            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
+            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
+        }
+    };
+    
+    // MAIN画面とTERMINAL画面でIDと引数を分けて実行
+    if (!isTerm) {
+        u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
+        u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
+        u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
+    } else {
+        u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
+        u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
+        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
     }
 }
 
@@ -473,78 +485,4 @@ function updateStoreUI() { document.getElementById('store-list-ui').innerHTML=st
 function handleProjectSelection() { if(isSystemAction)return; activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); if(activeStore){ document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }else{ document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; } }
 function saveTerminalDraft() { if(activeStore)localStorage.setItem("terminalDraft",JSON.stringify({activeStore,mDCount,mFCount,mTotal,actionLog,currentExtraMode})); }
 function loadTerminalDraft() { const d=JSON.parse(localStorage.getItem("terminalDraft")); if(d&&d.activeStore){activeStore=d.activeStore;mDCount=d.mDCount||0;mFCount=d.mFCount||0;mTotal=d.mTotal||0;actionLog=d.actionLog||[];currentExtraMode=d.currentExtraMode||'D';} }
-const getT=()=>`${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
-
-function commitTaskA() { mDCount++; mTotal+=activeStore.a; actionLog.push({id:Date.now(),time:getT(),cost:activeStore.a,d:1,f:0,label:'Task A(D)'}); updateTDisplay(); logT('TASK A'); }
-function commitTaskB() { mDCount++; mTotal+=activeStore.b; actionLog.push({id:Date.now(),time:getT(),cost:activeStore.b,d:1,f:0,label:'Task B(D)'}); updateTDisplay(); logT('TASK B'); }
-function selectTaskF() { document.getElementById('btn-task-f').classList.add('active-f'); logT('AWAITING NUM'); }
-function commitNum(v) { const c=v*100; mFCount++; mTotal+=c; actionLog.push({id:Date.now(),time:getT(),cost:c,d:0,f:1,label:`Task F(${v})`}); updateTDisplay(); logT('TASK F'); document.getElementById('btn-task-f').classList.add('active-f'); }
-function setExtraMode(m) { currentExtraMode=m; document.getElementById('ext-btn-d').className=m==='D'?'ext-btn active-d':'ext-btn'; document.getElementById('ext-btn-f').className=m==='F'?'ext-btn active-f':'ext-btn'; saveTerminalDraft(); }
-function addExtra() { const v=Number(document.getElementById('extra-cost').value); if(!v)return; let iD=currentExtraMode==='D'?1:0, iF=currentExtraMode==='F'?1:0; if(iD)mDCount++; if(iF)mFCount++; mTotal+=v; actionLog.push({id:Date.now(),time:getT(),cost:v,d:iD,f:iF,label:`Extra(${currentExtraMode})`}); document.getElementById('extra-cost').value=""; updateTDisplay(); logT('EXTRA'); }
-function addStealthMemo() { const t=document.getElementById('stealth-memo-input').value; if(!t)return; actionLog.push({id:Date.now(),time:getT(),cost:0,d:0,f:0,label:`【メモ】${t}`}); document.getElementById('stealth-memo-input').value=""; updateTDisplay(); logT('MEMO'); }
-function undoLast() { const l=actionLog.pop(); if(!l)return; mDCount-=l.d; mFCount-=l.f; mTotal-=l.cost; updateTDisplay(); logT("UNDO"); }
-function removeActionById(id) { const i=actionLog.findIndex(a=>a.id===id); if(i>-1){const t=actionLog[i];actionLog.splice(i,1);mDCount-=t.d;mFCount-=t.f;mTotal-=t.cost;updateTDisplay();} }
-function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return; document.getElementById('stealth-edit-id').value=id; document.getElementById('stealth-edit-label').value=a.label; document.getElementById('stealth-edit-cost').value=a.cost; document.getElementById('stealth-edit-modal').style.display='flex'; }
-function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
-
-function updateTDisplay() { 
-    document.getElementById('mock-d-count').innerText=mDCount; document.getElementById('mock-f-count').innerText=mFCount; document.getElementById('mock-total-val').innerText=mTotal.toLocaleString(); 
-    updateMainProgressBar(); 
-    const l=document.getElementById('action-log-list'); l.innerHTML=""; document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
-    for(let i=actionLog.length-1;i>=0;i--){ 
-        const a=actionLog[i]; 
-        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
-    } 
-    saveTerminalDraft(); 
-}
-function logT(m) { const e=document.getElementById('log-msg'); e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
-function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
-function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
-
-// V2: TERMINAL会計処理 (チケット消費とDRINK_POOL引き落とし)
-function finishProject() { 
-    const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
-    
-    let ticketBase = v2_status.ticketBaseAmount;
-    let usedTicket = 0;
-    let poolDeduct = amt;
-
-    if (v2_status.ticketRemaining > 0) {
-        usedTicket = 1;
-        v2_status.ticketRemaining -= 1;
-        poolDeduct = amt > ticketBase ? amt - ticketBase : 0;
-    }
-    v2_status.drinkDeposit -= poolDeduct;
-    saveV2();
-
-    let termMemo = `D:${mDCount} F:${mFCount} | TICKET -${usedTicket} / POOL -${poolDeduct} CONFIRMED`;
-
-    addData({ 
-        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
-        amount:amt, type:'expense', category:activeStore.name, memo:termMemo, 
-        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
-        status:'confirmed' 
-    });
-    
-    alert(`記録完了 (TICKET -${usedTicket} / DRINK_POOL -${poolDeduct}円)`); 
-    closeCheckout(); localStorage.removeItem("terminalDraft"); 
-    document.getElementById('active-terminal-area').style.display='none'; 
-    document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
-    switchPage('main', document.querySelector('.tab-item')); 
-}
-
-function downloadCSV() {
-    if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
-    let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
-    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
-    sortedData.forEach(d => {
-        let type = d.type === 'income' ? '収入' : '支出';
-        let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
-        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
-    });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
-    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
-    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
+const getT=()=>`${String
