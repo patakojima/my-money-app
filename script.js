@@ -43,7 +43,7 @@ window.onload = () => {
 };
 
 // ==========================================
-// Navigation & Core Logic (クラッシュプルーフ強化)
+// Navigation & Core Logic
 // ==========================================
 function switchPage(pageId, el) {
     try {
@@ -73,9 +73,7 @@ function switchPage(pageId, el) {
             if(pageId === 'vault') renderVault();
             updateMainProgressBar();
         }
-    } catch(e) {
-        console.error("Navigation Error:", e);
-    }
+    } catch(e) { console.error("Navigation Error:", e); }
 }
 
 // Stealth Events
@@ -194,8 +192,7 @@ function syncRealCash() {
         actionLogText: '', status: 'confirmed'
     });
     
-    v2_status.foodDeposit += diff; 
-    saveV2(); save(); render();
+    save(); render();
 }
 
 // V2 Config (FIXD)
@@ -351,6 +348,7 @@ function addData(obj) {
     const a=Number(amtEl ? amtEl.value : 0); if(!a)return alert("金額を入力してください"); 
     const typeVal = document.getElementById("type") ? document.getElementById("type").value : 'expense';
 
+    // 手動入力はFOOD_POOLを増減
     if (typeVal === 'expense') v2_status.foodDeposit -= a;
     else v2_status.foodDeposit += a;
     saveV2();
@@ -395,6 +393,12 @@ function render() {
         const p=d.status==='pending', cl=p?`item item-pending`:`item ${d.type}`, bd=p?`<span class="badge-pending">予定</span>`:'', tc=d.type==='expense'?'#dc3545':'#28a745';
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
+
+    // 復活させたサマリー表示の更新
+    const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.currentBalance.toLocaleString()+"円";
+    const tbEl = document.getElementById("todayBudget"); if(tbEl) tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
+    const wrEl = document.getElementById("weekRemaining"); if(wrEl) wrEl.innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
+
     updateMainProgressBar();
 }
 
@@ -494,7 +498,34 @@ function updateRecord(id) {
 
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
-function deleteRecord(id) { if(!confirm("削除しますか？"))return; const i=data.findIndex(x=>x.id===id); if(data[i].templateId)data[i].status='deleted'; else data.splice(i,1); save(); render(); document.getElementById('detail-modal').style.display='none'; }
+
+// ★ 削除時のロールバックロジックを追加
+function deleteRecord(id) { 
+    if(!confirm("削除しますか？")) return; 
+    const i=data.findIndex(x=>x.id===id); 
+    if(i===-1) return; 
+    const d = data[i];
+
+    // ロールバック（消したデータを元に戻す）処理
+    if (d.memo && d.memo.includes("TICKET")) {
+        // TERMINAL(戦場)からの記録を消した場合：チケットと飲み代プールを戻す
+        let tMatch = d.memo.match(/TICKET -(\d+)/);
+        let pMatch = d.memo.match(/POOL -(\d+)/);
+        if (tMatch) v2_status.ticketRemaining += Number(tMatch[1]);
+        if (pMatch) v2_status.drinkDeposit += Number(pMatch[1]);
+        if (v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
+    } else if (d.category !== '使途不明金') {
+        // 通常の手動記録を消した場合：食費プールを戻す
+        if (d.type === 'expense') v2_status.foodDeposit += d.amount;
+        else v2_status.foodDeposit -= d.amount;
+    }
+    saveV2(); // プールの状態を保存
+
+    if(d.templateId) d.status='deleted'; 
+    else data.splice(i,1); 
+    
+    save(); render(); document.getElementById('detail-modal').style.display='none'; 
+}
 
 function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
