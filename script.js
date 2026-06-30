@@ -28,7 +28,8 @@ function saveVault() { localStorage.setItem("vault_accounts", JSON.stringify(vau
 function save() { localStorage.setItem("moneyData", JSON.stringify(data)); }
 
 window.onload = () => { 
-    document.getElementById("date").value = formatStr(new Date()); 
+    const dateEl = document.getElementById("date");
+    if(dateEl) dateEl.value = formatStr(new Date()); 
     const sel = document.getElementById('active-project-id');
     if(sel) sel.addEventListener('change', handleProjectSelection);
     
@@ -42,29 +43,38 @@ window.onload = () => {
 };
 
 // ==========================================
-// Navigation & Core Logic
+// Navigation & Core Logic (クラッシュプルーフ強化)
 // ==========================================
 function switchPage(pageId, el) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); 
-    document.getElementById('page-' + pageId).classList.add('active');
-    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); 
-    if(el) el.classList.add('active');
-    
-    let titles = {'main':'メインダッシュボード', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
-    document.getElementById('display-title').innerText = titles[pageId] || '';
-    
-    if(pageId === 'terminal') { 
-        isSystemAction = true; updateStoreSelect(); 
-        if(activeStore) { 
-            document.getElementById('active-project-id').value = activeStore.id; document.getElementById('active-terminal-area').style.display = 'block'; 
-            document.getElementById('label-price-a').innerText = activeStore.a; document.getElementById('label-price-b').innerText = activeStore.b; 
-            setExtraMode(currentExtraMode); updateTDisplay(); 
-        } 
-        updateMainProgressBar(); setTimeout(() => isSystemAction = false, 50); 
-    } else {
-        if(pageId === 'fixed') loadV2ConfigUI();
-        if(pageId === 'vault') renderVault();
-        updateMainProgressBar();
+    try {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); 
+        const targetPage = document.getElementById('page-' + pageId);
+        if(targetPage) targetPage.classList.add('active');
+        
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); 
+        if(el) el.classList.add('active');
+        
+        let titles = {'main':'メインダッシュボード', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
+        const titleEl = document.getElementById('display-title');
+        if(titleEl) titleEl.innerText = titles[pageId] || '';
+        
+        if(pageId === 'terminal') { 
+            isSystemAction = true; updateStoreSelect(); 
+            if(activeStore) { 
+                const apId = document.getElementById('active-project-id'); if(apId) apId.value = activeStore.id; 
+                const ata = document.getElementById('active-terminal-area'); if(ata) ata.style.display = 'block'; 
+                const la = document.getElementById('label-price-a'); if(la) la.innerText = activeStore.a; 
+                const lb = document.getElementById('label-price-b'); if(lb) lb.innerText = activeStore.b; 
+                setExtraMode(currentExtraMode); updateTDisplay(); 
+            } 
+            updateMainProgressBar(); setTimeout(() => isSystemAction = false, 50); 
+        } else {
+            if(pageId === 'fixed') loadV2ConfigUI();
+            if(pageId === 'vault') renderVault();
+            updateMainProgressBar();
+        }
+    } catch(e) {
+        console.error("Navigation Error:", e);
     }
 }
 
@@ -73,6 +83,7 @@ let stealthTimer;
 function initStealthEvents() {
     const area = document.getElementById('stealth-trigger-area');
     const disp = document.getElementById('stealth-display');
+    if(!area || !disp) return;
     const show = () => { stealthTimer = setTimeout(() => { disp.style.display='block'; }, 400); };
     const hide = () => { clearTimeout(stealthTimer); disp.style.display='none'; };
     
@@ -88,6 +99,7 @@ function initStealthEvents() {
 function renderVault() {
     let total = 0;
     const listUi = document.getElementById('vault-list-ui');
+    if(!listUi) return;
     listUi.innerHTML = vault_accounts.map(v => {
         total += Number(v.balance) || 0;
         return `
@@ -100,13 +112,14 @@ function renderVault() {
         </div>
         `;
     }).join('');
-    document.getElementById('vault-total').innerText = "¥" + total.toLocaleString();
+    const vt = document.getElementById('vault-total');
+    if(vt) vt.innerText = "¥" + total.toLocaleString();
 }
 function addVault() {
-    const name = document.getElementById('new-vault-name').value;
-    if(!name) return;
-    vault_accounts.push({ id: 'v_'+Date.now(), name: name, balance: 0 });
-    document.getElementById('new-vault-name').value = '';
+    const nameInput = document.getElementById('new-vault-name');
+    if(!nameInput || !nameInput.value) return;
+    vault_accounts.push({ id: 'v_'+Date.now(), name: nameInput.value, balance: 0 });
+    nameInput.value = '';
     saveVault(); renderVault(); render(); 
 }
 function updateVaultBalance(id, val) {
@@ -131,11 +144,13 @@ function updateMainView() {
     const diff = vTotal - appBal;
     
     const syncWarn = document.getElementById('sync-warning');
-    if (diff !== 0) {
-        syncWarn.style.display = 'block';
-        document.getElementById('sync-diff-text').innerText = `⚠️ 現実とのズレ: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}円`;
-    } else {
-        syncWarn.style.display = 'none';
+    if(syncWarn) {
+        if (diff !== 0) {
+            syncWarn.style.display = 'block';
+            document.getElementById('sync-diff-text').innerText = `⚠️ 現実とのズレ: ${diff > 0 ? '+' : ''}${diff.toLocaleString()}円`;
+        } else {
+            syncWarn.style.display = 'none';
+        }
     }
 
     const c = calculateCurrentBudget(); 
@@ -162,8 +177,8 @@ function updateMainView() {
         }
     }
 
-    document.getElementById('st-food').innerText = v2_status.foodDeposit.toLocaleString();
-    document.getElementById('st-drink').innerText = v2_status.drinkDeposit.toLocaleString();
+    const stF = document.getElementById('st-food'); if(stF) stF.innerText = v2_status.foodDeposit.toLocaleString();
+    const stD = document.getElementById('st-drink'); if(stD) stD.innerText = v2_status.drinkDeposit.toLocaleString();
 }
 
 function syncRealCash() {
@@ -185,10 +200,10 @@ function syncRealCash() {
 
 // V2 Config (FIXD)
 function loadV2ConfigUI() {
-    document.getElementById('cfg-t-base').value = v2_status.ticketBaseAmount;
-    document.getElementById('cfg-t-max').value = v2_status.ticketMax;
-    document.getElementById('cfg-f-pool').value = v2_status.foodDeposit;
-    document.getElementById('cfg-d-pool').value = v2_status.drinkDeposit;
+    const tBase = document.getElementById('cfg-t-base'); if(tBase) tBase.value = v2_status.ticketBaseAmount;
+    const tMax = document.getElementById('cfg-t-max'); if(tMax) tMax.value = v2_status.ticketMax;
+    const fPool = document.getElementById('cfg-f-pool'); if(fPool) fPool.value = v2_status.foodDeposit;
+    const dPool = document.getElementById('cfg-d-pool'); if(dPool) dPool.value = v2_status.drinkDeposit;
 }
 function saveV2Config() {
     v2_status.ticketBaseAmount = Number(document.getElementById('cfg-t-base').value) || 2500;
@@ -215,7 +230,6 @@ function transferFund() {
     save(); loadV2ConfigUI(); render();
     alert(`¥${amt.toLocaleString()} を移管しました。`);
 }
-
 
 // ==========================================
 // V1 Legacy & General Logic
@@ -247,7 +261,9 @@ function resetCycleEnd() {
 }
 
 function renderTemplates() { 
-    document.getElementById('template-list-ui').innerHTML = fixedTemplates.sort((a,b)=>a.day-b.day).map((t,i) => `
+    const ui = document.getElementById('template-list-ui');
+    if(!ui) return;
+    ui.innerHTML = fixedTemplates.sort((a,b)=>a.day-b.day).map((t,i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:10px 0;border-bottom:1px dashed #eee;">
             <div><span style="color:#8e8e93;font-family:monospace;margin-right:5px;">${t.day}日</span><span style="color:${t.type==='expense'?'#dc3545':'#28a745'};font-weight:bold;">${t.type==='expense'?'[-]':'[+]'}</span> ${t.category}</div>
             <div style="display:flex; gap:6px; align-items:center;">
@@ -331,8 +347,9 @@ function calculateCurrentBudget() {
 
 function addData(obj) { 
     if (obj && obj.id) { data.push(obj); save(); render(); return; } 
-    const a=Number(document.getElementById("amount").value); if(!a)return alert("金額を入力してください"); 
-    const typeVal = document.getElementById("type").value;
+    const amtEl = document.getElementById("amount");
+    const a=Number(amtEl ? amtEl.value : 0); if(!a)return alert("金額を入力してください"); 
+    const typeVal = document.getElementById("type") ? document.getElementById("type").value : 'expense';
 
     if (typeVal === 'expense') v2_status.foodDeposit -= a;
     else v2_status.foodDeposit += a;
@@ -345,7 +362,7 @@ function addData(obj) {
     let tId = null;
     if (isPending) {
         tId = Date.now() + Math.floor(Math.random() * 1000);
-        let inputDate = document.getElementById("date").value;
+        let inputDate = document.getElementById("date") ? document.getElementById("date").value : formatStr(new Date());
         let dObj = parseDate(inputDate);
         fixedTemplates.push({
             id: tId, day: dObj.getDate(), time: document.getElementById("time").value || "12:00",
@@ -363,14 +380,16 @@ function addData(obj) {
     }); 
     
     save(); render(); 
-    document.getElementById("amount").value=""; document.getElementById("memo").value=""; document.getElementById("category").value=""; 
+    if(document.getElementById("amount")) document.getElementById("amount").value=""; 
+    if(document.getElementById("memo")) document.getElementById("memo").value=""; 
+    if(document.getElementById("category")) document.getElementById("category").value=""; 
     if(pendingEl) pendingEl.checked = false;
 }
 
 function render() {
     const l=document.getElementById("list"); if(!l) return;
     l.innerHTML=""; const c=calculateCurrentBudget(); 
-    document.getElementById("cycle-title").innerText=`現在の実績 (${c.cycleText})`; 
+    const ct = document.getElementById("cycle-title"); if(ct) ct.innerText=`現在の実績 (${c.cycleText})`; 
     syncTemplatesWithCycle(c);
     data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped').sort((a,b)=>(b.date+" "+b.time).localeCompare(a.date+" "+a.time)).forEach(d => {
         const p=d.status==='pending', cl=p?`item item-pending`:`item ${d.type}`, bd=p?`<span class="badge-pending">予定</span>`:'', tc=d.type==='expense'?'#dc3545':'#28a745';
@@ -383,11 +402,11 @@ function updateMainProgressBar() {
     updateMainView();
 
     let c = calculateCurrentBudget();
-    let isTerm = document.getElementById('page-terminal').classList.contains('active');
+    let termEl = document.getElementById('page-terminal');
+    let isTerm = termEl ? termEl.classList.contains('active') : false;
     let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     
-    // プログレスバーの共通描画ロジック
-    const u = (bId, vId, aId, bM, cR, cS, isTerminalMode) => { 
+    const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
         let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
         if(!b || !v || !a) return;
         
@@ -414,7 +433,6 @@ function updateMainProgressBar() {
         }
     };
     
-    // MAIN画面とTERMINAL画面でIDと引数を分けて実行
     if (!isTerm) {
         u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
         u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
@@ -441,7 +459,9 @@ function showDetail(id) {
         templateUi = `<label style="display:flex; align-items:center; gap:8px; margin: 15px 4px 10px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;"><input type="checkbox" id="edit-is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;"><span style="padding-top:2px;">FIXEDに登録して保留</span></label>`;
     }
 
-    document.getElementById('detail-content').innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${templateUi}${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
+    const dc = document.getElementById('detail-content');
+    if(!dc) return;
+    dc.innerHTML=`<h3 style="margin:0 0 10px;border-bottom:2px solid ${p?'#FF9500':'#007aff'};padding-bottom:5px;">${p?'予定の確認':'データの編集'}</h3><div style="display:flex;gap:10px;"><input type="date" id="edit-date" value="${d.date}" style="flex:2;"><input type="time" id="edit-time" value="${d.time}" style="flex:1;"></div><select id="edit-type"><option value="expense" ${d.type==='expense'?'selected':''}>支出</option><option value="income" ${d.type==='income'?'selected':''}>収入</option></select><input type="number" id="edit-amount" value="${d.amount}" inputmode="numeric"><input type="text" id="edit-category" value="${d.category||''}"><input type="text" id="edit-memo" value="${d.memo||''}"><textarea id="edit-actionlog" style="font-size:12px;width:100%;height:60px;margin-top:10px;">${d.actionLogText||''}</textarea>${templateUi}${btns}<button class="main-btn" style="background:#ccc;" onclick="document.getElementById('detail-modal').style.display='none'">閉じる</button>`; 
     document.getElementById('detail-modal').style.display = 'flex'; 
 }
 
@@ -479,10 +499,87 @@ function deleteRecord(id) { if(!confirm("削除しますか？"))return; const i
 function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
-function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
-function updateStoreUI() { document.getElementById('store-list-ui').innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button class="main-btn" onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">編集</button><button class="main-btn" onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">✖</button></div></div>`).join(''); }
+function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); if(!sel)return; const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
+function updateStoreUI() { const sui = document.getElementById('store-list-ui'); if(!sui)return; sui.innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button class="main-btn" onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">編集</button><button class="main-btn" onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">✖</button></div></div>`).join(''); }
 
 function handleProjectSelection() { if(isSystemAction)return; activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); if(activeStore){ document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }else{ document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; } }
 function saveTerminalDraft() { if(activeStore)localStorage.setItem("terminalDraft",JSON.stringify({activeStore,mDCount,mFCount,mTotal,actionLog,currentExtraMode})); }
 function loadTerminalDraft() { const d=JSON.parse(localStorage.getItem("terminalDraft")); if(d&&d.activeStore){activeStore=d.activeStore;mDCount=d.mDCount||0;mFCount=d.mFCount||0;mTotal=d.mTotal||0;actionLog=d.actionLog||[];currentExtraMode=d.currentExtraMode||'D';} }
-const getT=()=>`${String
+const getT=()=>`${String(new Date().getHours()).padStart(2,'0')}:${String(new Date().getMinutes()).padStart(2,'0')}`;
+
+function commitTaskA() { mDCount++; mTotal+=activeStore.a; actionLog.push({id:Date.now(),time:getT(),cost:activeStore.a,d:1,f:0,label:'Task A(D)'}); updateTDisplay(); logT('TASK A'); }
+function commitTaskB() { mDCount++; mTotal+=activeStore.b; actionLog.push({id:Date.now(),time:getT(),cost:activeStore.b,d:1,f:0,label:'Task B(D)'}); updateTDisplay(); logT('TASK B'); }
+function selectTaskF() { document.getElementById('btn-task-f').classList.add('active-f'); logT('AWAITING NUM'); }
+function commitNum(v) { const c=v*100; mFCount++; mTotal+=c; actionLog.push({id:Date.now(),time:getT(),cost:c,d:0,f:1,label:`Task F(${v})`}); updateTDisplay(); logT('TASK F'); document.getElementById('btn-task-f').classList.add('active-f'); }
+function setExtraMode(m) { currentExtraMode=m; document.getElementById('ext-btn-d').className=m==='D'?'ext-btn active-d':'ext-btn'; document.getElementById('ext-btn-f').className=m==='F'?'ext-btn active-f':'ext-btn'; saveTerminalDraft(); }
+function addExtra() { const v=Number(document.getElementById('extra-cost').value); if(!v)return; let iD=currentExtraMode==='D'?1:0, iF=currentExtraMode==='F'?1:0; if(iD)mDCount++; if(iF)mFCount++; mTotal+=v; actionLog.push({id:Date.now(),time:getT(),cost:v,d:iD,f:iF,label:`Extra(${currentExtraMode})`}); document.getElementById('extra-cost').value=""; updateTDisplay(); logT('EXTRA'); }
+function addStealthMemo() { const t=document.getElementById('stealth-memo-input').value; if(!t)return; actionLog.push({id:Date.now(),time:getT(),cost:0,d:0,f:0,label:`【メモ】${t}`}); document.getElementById('stealth-memo-input').value=""; updateTDisplay(); logT('MEMO'); }
+function undoLast() { const l=actionLog.pop(); if(!l)return; mDCount-=l.d; mFCount-=l.f; mTotal-=l.cost; updateTDisplay(); logT("UNDO"); }
+function removeActionById(id) { const i=actionLog.findIndex(a=>a.id===id); if(i>-1){const t=actionLog[i];actionLog.splice(i,1);mDCount-=t.d;mFCount-=t.f;mTotal-=t.cost;updateTDisplay();} }
+function editActionById(id) { const a=actionLog.find(x=>x.id===id); if(!a)return; document.getElementById('stealth-edit-id').value=id; document.getElementById('stealth-edit-label').value=a.label; document.getElementById('stealth-edit-cost').value=a.cost; document.getElementById('stealth-edit-modal').style.display='flex'; }
+function saveActionEdit() { const id=Number(document.getElementById('stealth-edit-id').value), a=actionLog.find(x=>x.id===id); if(!a)return; const nL=document.getElementById('stealth-edit-label').value, nC=Number(document.getElementById('stealth-edit-cost').value); mTotal=mTotal-a.cost+nC; a.label=nL; a.cost=nC; document.getElementById('stealth-edit-modal').style.display='none'; updateTDisplay(); }
+
+function updateTDisplay() { 
+    const mdc = document.getElementById('mock-d-count'); if(mdc) mdc.innerText=mDCount; 
+    const mfc = document.getElementById('mock-f-count'); if(mfc) mfc.innerText=mFCount; 
+    const mtv = document.getElementById('mock-total-val'); if(mtv) mtv.innerText=mTotal.toLocaleString(); 
+    updateMainProgressBar(); 
+    const l=document.getElementById('action-log-list'); if(!l)return; l.innerHTML=""; 
+    document.getElementById('action-log-area').style.display=actionLog.length?'block':'none';
+    for(let i=actionLog.length-1;i>=0;i--){ 
+        const a=actionLog[i]; 
+        l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
+    } 
+    saveTerminalDraft(); 
+}
+function logT(m) { const e=document.getElementById('log-msg'); if(!e)return; e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
+function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
+function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
+
+// V2: TERMINAL会計処理 (チケット消費とDRINK_POOL引き落とし)
+function finishProject() { 
+    const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
+    
+    let ticketBase = v2_status.ticketBaseAmount;
+    let usedTicket = 0;
+    let poolDeduct = amt;
+
+    if (v2_status.ticketRemaining > 0) {
+        usedTicket = 1;
+        v2_status.ticketRemaining -= 1;
+        poolDeduct = amt > ticketBase ? amt - ticketBase : 0;
+    }
+    v2_status.drinkDeposit -= poolDeduct;
+    saveV2();
+
+    let termMemo = `D:${mDCount} F:${mFCount} | TICKET -${usedTicket} / POOL -${poolDeduct} CONFIRMED`;
+
+    addData({ 
+        id:Date.now(), date:formatStr(new Date()), time:getT(), timestamp:Date.now(), 
+        amount:amt, type:'expense', category:activeStore.name, memo:termMemo, 
+        actionLogText:actionLog.map(a=>`${a.time} ${a.label} ${a.cost>0?'+'+a.cost:''}`).join('\n'), 
+        status:'confirmed' 
+    });
+    
+    alert(`記録完了 (TICKET -${usedTicket} / DRINK_POOL -${poolDeduct}円)`); 
+    closeCheckout(); localStorage.removeItem("terminalDraft"); 
+    document.getElementById('active-terminal-area').style.display='none'; 
+    document.getElementById('active-project-id').value=""; activeStore=null; cancelEditStore(); 
+    switchPage('main', document.querySelector('.tab-item')); 
+}
+
+function downloadCSV() {
+    if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
+    let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
+    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
+    sortedData.forEach(d => {
+        let type = d.type === 'income' ? '収入' : '支出';
+        let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
+        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
+    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
+    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
