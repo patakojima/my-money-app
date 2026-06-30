@@ -33,6 +33,15 @@ window.onload = () => {
     const sel = document.getElementById('active-project-id');
     if(sel) sel.addEventListener('change', handleProjectSelection);
     
+    // 収入/支出切り替えで「支出元」の表示を切り替え
+    const typeSel = document.getElementById("type");
+    if(typeSel) {
+        typeSel.addEventListener("change", (e) => {
+            const esC = document.getElementById("expense-source-container");
+            if(esC) esC.style.display = e.target.value === 'expense' ? 'block' : 'none';
+        });
+    }
+
     initStealthEvents();
     loadV2ConfigUI();
     renderVault();
@@ -131,7 +140,7 @@ function removeVault(id) {
 }
 
 // ==========================================
-// Sync & Calc Logic (ズレ計算修正)
+// Sync & Calc Logic (自由残高ベースの3層防衛システム)
 // ==========================================
 function calcAppBalance() {
     // 【重要】現実の残高計算には「確定(confirmed)したデータのみ」を使用する！
@@ -155,21 +164,6 @@ function updateMainView() {
         }
     }
 
-    const c = calculateCurrentBudget(); 
-    let wRem = c.weekRemaining;
-    let wBud = c.budgetForWeek;
-    
-    let p = wBud > 0 ? (wRem / wBud) * 100 : 0;
-    if(p > 100) p = 100; if(p < 0) p = 0;
-    
-    const foodBar = document.getElementById('food-bar');
-    if(foodBar) {
-        foodBar.style.width = p + '%';
-        foodBar.style.background = p > 50 ? '#34C759' : (p > 20 ? '#FFCC00' : '#FF3B30');
-        document.getElementById('food-rem-val').innerText = '¥' + wRem.toLocaleString();
-        document.getElementById('food-budget-val').innerText = '/ ¥' + wBud.toLocaleString();
-    }
-
     const tInd = document.getElementById('ticket-indicator');
     if(tInd) {
         tInd.innerHTML = '';
@@ -179,8 +173,8 @@ function updateMainView() {
         }
     }
 
-    const stF = document.getElementById('st-food'); if(stF) stF.innerText = v2_status.foodDeposit.toLocaleString();
-    const stD = document.getElementById('st-drink'); if(stD) stD.innerText = v2_status.drinkDeposit.toLocaleString();
+    const stF = document.getElementById('st-food'); if(stF) stF.innerText = (v2_status.foodDeposit||0).toLocaleString();
+    const stD = document.getElementById('st-drink'); if(stD) stD.innerText = (v2_status.drinkDeposit||0).toLocaleString();
 }
 
 function syncRealCash() {
@@ -211,6 +205,7 @@ function saveV2Config() {
     v2_status.ticketMax = Number(document.getElementById('cfg-t-max').value) || 5;
     v2_status.foodDeposit = Number(document.getElementById('cfg-f-pool').value) || 0;
     v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
+    v2_status.foodDepositMax = v2_status.foodDeposit; // 更新時をMAX基準とする
     if(v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
     saveV2(); render();
     alert("設定を更新しました");
@@ -233,7 +228,7 @@ function transferFund() {
 }
 
 // ==========================================
-// V1 Legacy & General Logic
+// 期間＆予定(FIXED) 処理
 // ==========================================
 function showCycleEditModal() { 
     let c = getCycle(new Date()); 
@@ -319,31 +314,70 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
+// ==========================================
+// ★ 超重要: 3層防衛システム コア計算ロジック
+// ==========================================
 function calculateCurrentBudget() {
-    const t=new Date(); t.setHours(0,0,0,0); const tStr=formatStr(t); const c=getCycle(t); 
-    let cEx=0, cIn=0, tSp=0, wSp=0, dOfW=t.getDay(), dSM=dOfW===0?6:dOfW-1, sW=new Date(t); sW.setDate(t.getDate()-dSM); let sWStr=formatStr(sW);
-    data.forEach(d => { 
-        if(d.date>=c.startStr && d.date<c.nextPayStr && d.status!=='deleted' && d.status!=='skipped') { 
-            if(d.type==='expense'){ 
-                cEx+=d.amount; 
-                if(!d.templateId && d.status!=='pending') { 
-                    if(d.date===tStr) tSp+=d.amount; 
-                    if(d.date>=sWStr && d.date<=tStr) wSp+=d.amount; 
-                } 
-            } 
-            if(d.type==='income'){ cIn+=d.amount; } 
-        } 
+    const t = new Date(); t.setHours(0,0,0,0); const tStr = formatStr(t); const c = getCycle(t); 
+
+    // ① 現実の全財産（確定済み）
+    let appBal = data.filter(d => d.status === 'confirmed').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
+
+    // ② 絶対触ってはいけないお金 (今サイクルの未確定FIXED支出 + POOL残額)
+    let pendingExpenses = data.filter(d => d.status === 'pending' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr).reduce((s, d) => s + d.amount, 0);
+    let lockFood = v2_status.foodDeposit || 0;
+    let lockDrink = v2_status.drinkDeposit || 0;
+
+    // ③ 自由に使える残高 (① - ②)
+    let freeBalance = appBal - pendingExpenses - lockFood - lockDrink;
+
+    let cycleEndObj = parseDate(c.endStr); 
+    let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; 
+    if (remD < 1) remD = 1; 
+
+    // 自由残高を減らした支出（今月・今日・今週）を集計
+    let todayFreeSp = 0, weekFreeSp = 0, monthFreeSp = 0;
+    let dOfW = t.getDay(), dSM = dOfW === 0 ? 6 : dOfW - 1; 
+    let sW = new Date(t); sW.setDate(t.getDate() - dSM); let sWStr = formatStr(sW);
+
+    data.forEach(d => {
+        if (d.status === 'confirmed' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr) {
+            // POOLから引かれたものは自由残高の消費ではない
+            let isPool = false;
+            if (d.memo && (d.memo.includes("POOL") || d.memo.includes("[FOOD_POOL]") || d.memo.includes("[DRINK_POOL]"))) isPool = true;
+            if (d.category === '資金繰り') isPool = true;
+
+            if (!isPool && !d.templateId) { 
+                monthFreeSp += d.amount;
+                if (d.date === tStr) todayFreeSp += d.amount;
+                if (d.date >= sWStr && d.date <= tStr) weekFreeSp += d.amount;
+            }
+        }
     });
-    
-    let cBal = cIn - cEx; let cycleEndObj = parseDate(c.endStr); let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; if (remD < 1) remD = 1; 
-    let dailyAvg = Math.floor((cBal + tSp) / remD); if (dailyAvg < 0) dailyAvg = 0;
-    let tBud = dailyAvg - tSp; let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
+
+    let dailyAvg = Math.floor((freeBalance + todayFreeSp) / remD); 
+    if (dailyAvg < 0) dailyAvg = 0;
+    let tBud = dailyAvg - todayFreeSp; 
+
+    let weekStartD = parseDate(sWStr); let weekEndD = new Date(weekStartD); weekEndD.setDate(weekStartD.getDate() + 6);
     let validStart = weekStartD < parseDate(c.startStr) ? parseDate(c.startStr) : weekStartD;
     let validEnd = weekEndD > cycleEndObj ? cycleEndObj : weekEndD; 
-    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; if (validDaysInWeek < 1) validDaysInWeek = 1;
-    let bFW = dailyAvg * validDaysInWeek; let wRem = bFW - wSp; 
-    if (wRem > cBal) wRem = cBal; bFW = wSp + (wRem > 0 ? wRem : 0);
-    return { currentBalance:cBal, todayBudget:tBud, weekRemaining:wRem, budgetForToday:dailyAvg, budgetForWeek:bFW, cycleText:`${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, startStr:c.startStr, nextPayStr:c.nextPayStr };
+    let validDaysInWeek = Math.floor((validEnd.getTime() - validStart.getTime())/(1000*60*60*24)) + 1; 
+    if (validDaysInWeek < 1) validDaysInWeek = 1;
+    
+    let bFW = dailyAvg * validDaysInWeek; 
+    let wRem = bFW - weekFreeSp; 
+    if (wRem > freeBalance) wRem = freeBalance; 
+    bFW = weekFreeSp + (wRem > 0 ? wRem : 0);
+
+    return { 
+        appBal, freeBalance, lockFood, lockDrink,
+        todayBudget: tBud, weekRemaining: wRem, 
+        budgetForToday: dailyAvg, budgetForWeek: bFW, 
+        monthFreeSp, todayFreeSp, weekFreeSp,
+        cycleText: `${c.startStr.slice(5)} 〜 ${c.endStr.slice(5)}`, 
+        startStr: c.startStr, nextPayStr: c.nextPayStr 
+    };
 }
 
 function addData(obj) { 
@@ -351,11 +385,23 @@ function addData(obj) {
     const amtEl = document.getElementById("amount");
     const a=Number(amtEl ? amtEl.value : 0); if(!a)return alert("金額を入力してください"); 
     const typeVal = document.getElementById("type") ? document.getElementById("type").value : 'expense';
+    let memoText = document.getElementById("memo") ? document.getElementById("memo").value : "";
 
-    // 手動入力はFOOD_POOLを増減
-    if (typeVal === 'expense') v2_status.foodDeposit -= a;
-    else v2_status.foodDeposit += a;
-    saveV2();
+    // 支出元の選択に応じてPOOLを減らし、マーカーをつける
+    if (typeVal === 'expense') {
+        const sourceSel = document.getElementById("expense-source");
+        const source = sourceSel ? sourceSel.value : 'free';
+        
+        if (source === 'food') {
+            v2_status.foodDeposit -= a;
+            memoText = memoText ? memoText + " [FOOD_POOL]" : "[FOOD_POOL]";
+        } else if (source === 'drink') {
+            v2_status.drinkDeposit -= a;
+            memoText = memoText ? memoText + " [DRINK_POOL]" : "[DRINK_POOL]";
+        }
+        if(document.getElementById("memo")) document.getElementById("memo").value = memoText; 
+        saveV2();
+    }
 
     const pendingEl = document.getElementById("is-pending");
     const isPending = pendingEl && pendingEl.checked;
@@ -369,7 +415,7 @@ function addData(obj) {
         fixedTemplates.push({
             id: tId, day: dObj.getDate(), time: document.getElementById("time").value || "12:00",
             type: typeVal, amount: a, category: document.getElementById("category").value || "未分類",
-            memo: document.getElementById("memo").value
+            memo: memoText // FIXED予定にはマーカーを含めない方が綺麗ですが、今回はそのまま保持
         });
         localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
         renderTemplates();
@@ -378,7 +424,7 @@ function addData(obj) {
     data.push({ 
         id: Date.now(), templateId: tId, date: document.getElementById("date").value, time: document.getElementById("time").value||"00:00", 
         timestamp: Date.now(), amount: a, type: typeVal, category: document.getElementById("category").value || "未分類", 
-        memo: document.getElementById("memo").value, actionLogText: "", status: initialStatus 
+        memo: memoText, actionLogText: "", status: initialStatus 
     }); 
     
     save(); render(); 
@@ -398,7 +444,7 @@ function render() {
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
 
-    const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.currentBalance.toLocaleString()+"円";
+    const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.freeBalance.toLocaleString()+"円";
     const tbEl = document.getElementById("todayBudget"); if(tbEl) tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
     const wrEl = document.getElementById("weekRemaining"); if(wrEl) wrEl.innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
 
@@ -413,6 +459,18 @@ function updateMainProgressBar() {
     let isTerm = termEl ? termEl.classList.contains('active') : false;
     let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     
+    // 食費メーターの描画
+    let fMax = v2_status.foodDepositMax || c.lockFood || 1;
+    let fP = (c.lockFood / fMax) * 100;
+    if(fP > 100) fP = 100; if(fP < 0) fP = 0;
+    const foodBar = document.getElementById('food-bar');
+    if(foodBar) {
+        foodBar.style.width = fP + '%';
+        foodBar.style.background = fP > 50 ? '#34C759' : (fP > 20 ? '#FFCC00' : '#FF3B30');
+        document.getElementById('food-rem-val').innerText = '¥' + c.lockFood.toLocaleString();
+        document.getElementById('food-budget-val').innerText = '/ ¥' + fMax.toLocaleString();
+    }
+
     const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
         let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
         if(!b || !v || !a) return;
@@ -443,11 +501,11 @@ function updateMainProgressBar() {
     if (!isTerm) {
         u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
         u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
-        u('main-bar-core','main-val-core','main-amt-core', tIn, c.currentBalance, 0, false);
+        u('main-bar-core','main-val-core','main-amt-core', c.freeBalance + c.monthFreeSp, c.freeBalance, 0, false);
     } else {
         u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
         u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
-        u('bar-core','val-core','amt-core', tIn, c.currentBalance, mTotal, true);
+        u('bar-core','val-core','amt-core', tIn, c.appBal, mTotal, true);
     }
 }
 
@@ -472,11 +530,15 @@ function showDetail(id) {
     document.getElementById('detail-modal').style.display = 'flex'; 
 }
 
-// ★ 編集時の金額変動に対応
+// ★ 編集ロック＆再計算対応
 function updateRecord(id) { 
     const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
-    let oldAmount = data[i].amount;
-    let oldType = data[i].type;
+    const d = data[i];
+
+    if (d.memo && d.memo.includes("TICKET")) {
+        alert("⚠️戦場（TERMINAL）の記録は編集できません。\nチケットやPOOLの計算を正確に戻すため、一度「削除」してから新しく入力し直してください！");
+        return;
+    }
 
     data[i].date=document.getElementById('edit-date').value; 
     data[i].time=document.getElementById('edit-time').value; 
@@ -485,16 +547,6 @@ function updateRecord(id) {
     data[i].category=document.getElementById('edit-category').value; 
     data[i].memo=document.getElementById('edit-memo').value; 
     data[i].actionLogText=document.getElementById('edit-actionlog').value; 
-
-    // FOOD POOLの調整 (チケット記録やシステム自動記録は除外)
-    if ((!data[i].memo || !data[i].memo.includes("TICKET")) && data[i].category !== '使途不明金' && data[i].category !== '資金繰り' && data[i].status !== 'skipped' && data[i].status !== 'deleted') {
-        if (oldType === 'expense') v2_status.foodDeposit += oldAmount;
-        else v2_status.foodDeposit -= oldAmount;
-        
-        if (data[i].type === 'expense') v2_status.foodDeposit -= data[i].amount;
-        else v2_status.foodDeposit += data[i].amount;
-        saveV2();
-    }
 
     const pendingEl = document.getElementById('edit-is-pending');
     if (pendingEl && pendingEl.checked && !data[i].templateId) {
@@ -514,25 +566,9 @@ function updateRecord(id) {
 }
 
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
+function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 
-// ★ スキップ時のメーター戻し処理を追加
-function skipRecord(id) { 
-    const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
-    const d = data[i];
-    
-    if (d.status !== 'skipped') { 
-        if (d.category !== '使途不明金' && d.category !== '資金繰り') {
-            if (d.type === 'expense') v2_status.foodDeposit += d.amount;
-            else v2_status.foodDeposit -= d.amount;
-            saveV2();
-        }
-        data[i].status='skipped'; 
-        save(); render(); 
-    }
-    document.getElementById('detail-modal').style.display='none'; 
-}
-
-// ★ 確実なロールバック処理
+// ★ 確実なロールバック処理 + アラート通知
 function deleteRecord(id) { 
     if(!confirm("削除しますか？")) return; 
     const i=data.findIndex(x=>x.id===id); 
@@ -540,16 +576,20 @@ function deleteRecord(id) {
     const d = data[i];
 
     if (d.memo && d.memo.includes("TICKET")) {
-        // TERMINAL(戦場)からの記録を消した場合
         let tMatch = d.memo.match(/TICKET -(\d+)/);
         let pMatch = d.memo.match(/POOL -(\d+)/);
-        if (tMatch) v2_status.ticketRemaining += Number(tMatch[1]);
-        if (pMatch) v2_status.drinkDeposit += Number(pMatch[1]);
+        let tAdd = tMatch ? Number(tMatch[1]) : 0;
+        let pAdd = pMatch ? Number(pMatch[1]) : 0;
+        v2_status.ticketRemaining += tAdd;
+        v2_status.drinkDeposit += pAdd;
         if (v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
-    } else if (d.category !== '使途不明金' && d.category !== '資金繰り' && d.status !== 'skipped') {
-        // 通常の手動記録を消した場合 (スキップ済みのものは既に計算外なので無視)
-        if (d.type === 'expense') v2_status.foodDeposit += d.amount;
-        else v2_status.foodDeposit -= d.amount;
+        alert(`♻️ ロールバック実行！\nチケット +${tAdd}枚\n飲み代POOL +${pAdd}円`);
+    } else if (d.memo && d.memo.includes("[FOOD_POOL]")) {
+        v2_status.foodDeposit += d.amount;
+        alert(`♻️ 食費POOLに +${d.amount.toLocaleString()}円 戻しました`);
+    } else if (d.memo && d.memo.includes("[DRINK_POOL]")) {
+        v2_status.drinkDeposit += d.amount;
+        alert(`♻️ 飲み代POOLに +${d.amount.toLocaleString()}円 戻しました`);
     }
     saveV2();
 
