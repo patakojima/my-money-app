@@ -196,7 +196,6 @@ function syncRealCash() {
 function loadV2ConfigUI() {
     const tBase = document.getElementById('cfg-t-base'); if(tBase) tBase.value = v2_status.ticketBaseAmount;
     const tMax = document.getElementById('cfg-t-max'); if(tMax) tMax.value = v2_status.ticketMax;
-    // 🎟️残数の入力欄を追加
     const tRem = document.getElementById('cfg-t-rem'); if(tRem) tRem.value = v2_status.ticketRemaining;
     const fPool = document.getElementById('cfg-f-pool'); if(fPool) fPool.value = v2_status.foodDeposit;
     const dPool = document.getElementById('cfg-d-pool'); if(dPool) dPool.value = v2_status.drinkDeposit;
@@ -204,7 +203,6 @@ function loadV2ConfigUI() {
 function saveV2Config() {
     v2_status.ticketBaseAmount = Number(document.getElementById('cfg-t-base').value) || 2500;
     v2_status.ticketMax = Number(document.getElementById('cfg-t-max').value) || 5;
-    // 🎟️残数もユーザーが自由に設定できるように変更
     v2_status.ticketRemaining = Number(document.getElementById('cfg-t-rem').value) || 0;
     v2_status.foodDeposit = Number(document.getElementById('cfg-f-pool').value) || 0;
     v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
@@ -324,27 +322,22 @@ function syncTemplatesWithCycle(calc) {
 function calculateCurrentBudget() {
     const t = new Date(); t.setHours(0,0,0,0); const tStr = formatStr(t); const c = getCycle(t); 
 
-    // ① 現実の全財産（確定済み）
     let appBal = data.filter(d => d.status === 'confirmed').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
 
-    // ② 絶対触ってはいけないお金 (未確定の予定 + POOL + 【追加】チケットの価値)
     let pendingExpenses = data.filter(d => d.status === 'pending' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr).reduce((s, d) => s + d.amount, 0);
     
-    // 【重要】チケットの価値（残数×単価）も、自由残高からは「無いもの（確保済み）」としてガッツリ引く！
     let lockTickets = (v2_status.ticketRemaining || 0) * (v2_status.ticketBaseAmount || 0);
     let lockFood = v2_status.foodDeposit || 0;
     let lockDrinkPool = v2_status.drinkDeposit || 0;
     
     let lockDrinkTotal = lockDrinkPool + lockTickets;
 
-    // ③ 自由に使える残高 (① - ②)
     let freeBalance = appBal - pendingExpenses - lockFood - lockDrinkTotal;
 
     let cycleEndObj = parseDate(c.endStr); 
     let remD = Math.floor((cycleEndObj.getTime() - t.getTime())/(1000*60*60*24)) + 1; 
     if (remD < 1) remD = 1; 
 
-    // 自由残高を減らした支出（今月・今日・今週）を集計
     let todayFreeSp = 0, weekFreeSp = 0, monthFreeSp = 0;
     let dOfW = t.getDay(), dSM = dOfW === 0 ? 6 : dOfW - 1; 
     let sW = new Date(t); sW.setDate(t.getDate() - dSM); let sWStr = formatStr(sW);
@@ -352,7 +345,6 @@ function calculateCurrentBudget() {
     data.forEach(d => {
         if (d.status === 'confirmed' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr) {
             let isPool = false;
-            // メモにTICKETが含まれている（TERMINALの記録）もPOOL消費扱いなので除外
             if (d.memo && (d.memo.includes("POOL") || d.memo.includes("TICKET") || d.memo.includes("[FOOD_POOL]") || d.memo.includes("[DRINK_POOL]"))) isPool = true;
             if (d.category === '資金繰り') isPool = true;
 
@@ -396,7 +388,6 @@ function addData(obj) {
     const typeVal = document.getElementById("type") ? document.getElementById("type").value : 'expense';
     let memoText = document.getElementById("memo") ? document.getElementById("memo").value : "";
 
-    // 支出元の選択に応じてPOOLを減らし、マーカーをつける
     if (typeVal === 'expense') {
         const sourceSel = document.getElementById("expense-source");
         const source = sourceSel ? sourceSel.value : 'free';
@@ -460,15 +451,18 @@ function render() {
     updateMainProgressBar();
 }
 
+// ★ USAGE（使用量）バーとして完全修正
 function updateMainProgressBar() {
     updateMainView();
 
     let c = calculateCurrentBudget();
     let termEl = document.getElementById('page-terminal');
     let isTerm = termEl ? termEl.classList.contains('active') : false;
-    let tIn = data.filter(d=>d.date>=c.startStr && d.date<c.nextPayStr && d.type==='income' && d.status!=='deleted' && d.status!=='skipped').reduce((s,d)=>s+d.amount,0)||1;
     
-    // 食費メーターの描画
+    // TERMINAL用のCORE MAX値（自由残高の全体予算）
+    let coreMax = c.freeBalance + c.monthFreeSp;
+    
+    // 食費メーター (ここだけは「残り」を示す体力ゲージ型を維持)
     let fMax = v2_status.foodDepositMax || c.lockFood || 1;
     let fP = (c.lockFood / fMax) * 100;
     if(fP > 100) fP = 100; if(fP < 0) fP = 0;
@@ -480,41 +474,49 @@ function updateMainProgressBar() {
         document.getElementById('food-budget-val').innerText = '/ ¥' + fMax.toLocaleString();
     }
 
+    // 自由残高＆TERMINAL用の「使用量(USAGE)」バーの描画関数
     const u = (bId, vId, aId, bM, cR, cS = 0, isTerminalMode) => { 
         let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
         if(!b || !v || !a) return;
         
-        let fR = isTerminalMode ? (cR - cS) : cR; 
-        let used = bM - fR;
+        let fR = isTerminalMode ? (cR - cS) : cR; // 最終的に残るお金
+        let used = bM - fR; // 使ったお金
         let unit = isTerminalMode ? "MB" : "円";
         
-        let labelNormal = isTerminalMode ? "USED: {u} / MAX: {m}" : "支出 {u} / 予算 {m}";
-        let labelOver = isTerminalMode ? "USED: {u} / MAX: {m} (SWAP OVER)" : "予算超過 (支出 {u} / 予算 {m})";
-
-        let textNormal = labelNormal.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
-        let textOver = labelOver.replace('{u}', used.toLocaleString() + unit).replace('{m}', bM.toLocaleString() + unit);
+        let textNormal = isTerminalMode ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit}` : `支出 ${used.toLocaleString()}${unit} / 予算 ${bM.toLocaleString()}${unit}`;
+        let textOver = isTerminalMode ? `USED: ${used.toLocaleString()}${unit} / MAX: ${bM.toLocaleString()}${unit} (SWAP OVER)` : `予算超過 (支出 ${used.toLocaleString()}${unit} / 予算 ${bM.toLocaleString()}${unit})`;
 
         if (bM <= 0 && fR <= 0) {
             b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93'; 
             a.innerText = isTerminalMode ? 'USED: 0MB / MAX: 0MB' : '支出 0円 / 予算 0円'; a.style.color='#8e8e93';
         } else if (fR < 0) {
+            // 予算オーバー時
             b.style.width='100%'; b.style.background='repeating-linear-gradient(45deg,#ff3b30,#ff3b30 8px,#ff6b6b 8px,#ff6b6b 16px)'; 
             v.innerText='OVER'; v.style.color='#ff3b30'; a.innerText=textOver; a.style.color='#ff3b30';
         } else {
-            let p=bM>0?(fR/bM)*100:100; if(p>100)p=100;
-            b.style.width=p+'%'; v.innerText=Math.floor(p)+'%'; v.style.color='#1c1c1e'; 
-            b.style.background=p>50?'#34C759':(p>20?'#FFCC00':'#FF3B30'); a.innerText=textNormal; a.style.color='#1c1c1e';
+            // ★ ここを「使用割合（カラからスタートして伸びる）」に変更
+            let p = bM > 0 ? (used / bM) * 100 : 100;
+            if(p > 100) p = 100;
+            if(p < 0) p = 0;
+            b.style.width = p + '%'; 
+            v.innerText = Math.floor(p) + '%'; v.style.color='#1c1c1e'; 
+            
+            // ★ 色も逆転（少ない=安全な緑、多い=危険な赤）
+            b.style.background = p < 60 ? '#34C759' : (p < 85 ? '#FFCC00' : '#FF3B30'); 
+            a.innerText = textNormal; a.style.color='#1c1c1e';
         }
     };
     
     if (!isTerm) {
+        // MAIN画面（0円からスタートして予算まで伸びる）
         u('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget, 0, false); 
         u('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining, 0, false); 
-        u('main-bar-core','main-val-core','main-amt-core', c.freeBalance + c.monthFreeSp, c.freeBalance, 0, false);
+        u('main-bar-core','main-val-core','main-amt-core', coreMax, c.freeBalance, 0, false);
     } else {
+        // TERMINAL画面（同じく使用量ベース、COREのMAX値も修正）
         u('bar-day','val-day','amt-day', c.budgetForToday, c.todayBudget, mTotal, true); 
         u('bar-week','val-week','amt-week', c.budgetForWeek, c.weekRemaining, mTotal, true); 
-        u('bar-core','val-core','amt-core', tIn, c.appBal, mTotal, true);
+        u('bar-core','val-core','amt-core', coreMax, c.freeBalance, mTotal, true);
     }
 }
 
@@ -646,7 +648,6 @@ function logT(m) { const e=document.getElementById('log-msg'); if(!e)return; e.i
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
 function closeCheckout() { document.getElementById('checkout-modal').style.display='none'; }
 
-// V2: TERMINAL会計処理 (チケット消費とDRINK_POOL引き落とし)
 function finishProject() { 
     const amt=Number(document.getElementById('final-amount').value); if(!amt) return;
     
@@ -694,7 +695,6 @@ function downloadCSV() {
     const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
-// 🆕 完全お引越し！CSVインポート（復元）機能
 function importCSV(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -708,7 +708,6 @@ function importCSV(event) {
             const line = lines[i].trim();
             if (!line) continue;
             
-            // カンマ区切りのパース（ダブルクォート内のカンマを無視する）
             let cols = [];
             let inQuote = false;
             let col = '';
@@ -736,12 +735,11 @@ function importCSV(event) {
                 if (statStr === 'スキップ') status = 'skipped';
                 if (statStr === '予定') status = 'pending';
 
-                // 重複チェック（同じ日時・金額・カテゴリがあれば読み飛ばす）
                 const isDuplicate = data.some(d => d.date === dateStr && d.time === timeStr && d.amount === amount && d.category === cat);
                 
                 if (!isDuplicate) {
                     data.push({
-                        id: Date.now() + importedCount, // IDを再生成
+                        id: Date.now() + importedCount,
                         date: dateStr,
                         time: timeStr,
                         timestamp: parseDate(dateStr).getTime(),
@@ -759,7 +757,7 @@ function importCSV(event) {
         save();
         render();
         alert(`📥 ${importedCount}件のデータを復元（インポート）しました！\nお店データなどは手動で再設定してください。`);
-        event.target.value = ''; // 選択したファイルをリセット
+        event.target.value = ''; 
     };
     reader.readAsText(file);
 }
