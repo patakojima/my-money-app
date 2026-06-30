@@ -130,9 +130,13 @@ function removeVault(id) {
     saveVault(); renderVault(); render();
 }
 
-// Sync & Calc Logic
+// ==========================================
+// Sync & Calc Logic (ズレ計算修正)
+// ==========================================
 function calcAppBalance() {
-    return data.filter(d => d.status !== 'deleted' && d.status !== 'skipped').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
+    // 【重要】現実の残高計算には「確定(confirmed)したデータのみ」を使用する！
+    return data.filter(d => d.status === 'confirmed')
+               .reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
 }
 function calcVaultTotal() { return vault_accounts.reduce((s, v) => s + (Number(v.balance) || 0), 0); }
 
@@ -394,7 +398,6 @@ function render() {
         const v=document.createElement("div"); v.className=cl; v.innerHTML=`<div><small style="color:#999;display:block;">${d.date} ${d.time}</small>${bd}${d.category||'未分類'} <small style="color:#666;">${d.memo?'('+d.memo+')':''}</small></div><div style="color:${p?'#8e8e93':tc};font-weight:bold;">${d.type==='expense'?'-':'+'}${d.amount.toLocaleString()}円</div>`; v.onclick=()=>showDetail(d.id); l.appendChild(v);
     });
 
-    // 復活させたサマリー表示の更新
     const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.currentBalance.toLocaleString()+"円";
     const tbEl = document.getElementById("todayBudget"); if(tbEl) tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
     const wrEl = document.getElementById("weekRemaining"); if(wrEl) wrEl.innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
@@ -469,8 +472,12 @@ function showDetail(id) {
     document.getElementById('detail-modal').style.display = 'flex'; 
 }
 
+// ★ 編集時の金額変動に対応
 function updateRecord(id) { 
     const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
+    let oldAmount = data[i].amount;
+    let oldType = data[i].type;
+
     data[i].date=document.getElementById('edit-date').value; 
     data[i].time=document.getElementById('edit-time').value; 
     data[i].type=document.getElementById('edit-type').value; 
@@ -478,6 +485,16 @@ function updateRecord(id) {
     data[i].category=document.getElementById('edit-category').value; 
     data[i].memo=document.getElementById('edit-memo').value; 
     data[i].actionLogText=document.getElementById('edit-actionlog').value; 
+
+    // FOOD POOLの調整 (チケット記録やシステム自動記録は除外)
+    if ((!data[i].memo || !data[i].memo.includes("TICKET")) && data[i].category !== '使途不明金' && data[i].category !== '資金繰り' && data[i].status !== 'skipped' && data[i].status !== 'deleted') {
+        if (oldType === 'expense') v2_status.foodDeposit += oldAmount;
+        else v2_status.foodDeposit -= oldAmount;
+        
+        if (data[i].type === 'expense') v2_status.foodDeposit -= data[i].amount;
+        else v2_status.foodDeposit += data[i].amount;
+        saveV2();
+    }
 
     const pendingEl = document.getElementById('edit-is-pending');
     if (pendingEl && pendingEl.checked && !data[i].templateId) {
@@ -497,29 +514,44 @@ function updateRecord(id) {
 }
 
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
-function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 
-// ★ 削除時のロールバックロジックを追加
+// ★ スキップ時のメーター戻し処理を追加
+function skipRecord(id) { 
+    const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
+    const d = data[i];
+    
+    if (d.status !== 'skipped') { 
+        if (d.category !== '使途不明金' && d.category !== '資金繰り') {
+            if (d.type === 'expense') v2_status.foodDeposit += d.amount;
+            else v2_status.foodDeposit -= d.amount;
+            saveV2();
+        }
+        data[i].status='skipped'; 
+        save(); render(); 
+    }
+    document.getElementById('detail-modal').style.display='none'; 
+}
+
+// ★ 確実なロールバック処理
 function deleteRecord(id) { 
     if(!confirm("削除しますか？")) return; 
     const i=data.findIndex(x=>x.id===id); 
     if(i===-1) return; 
     const d = data[i];
 
-    // ロールバック（消したデータを元に戻す）処理
     if (d.memo && d.memo.includes("TICKET")) {
-        // TERMINAL(戦場)からの記録を消した場合：チケットと飲み代プールを戻す
+        // TERMINAL(戦場)からの記録を消した場合
         let tMatch = d.memo.match(/TICKET -(\d+)/);
         let pMatch = d.memo.match(/POOL -(\d+)/);
         if (tMatch) v2_status.ticketRemaining += Number(tMatch[1]);
         if (pMatch) v2_status.drinkDeposit += Number(pMatch[1]);
         if (v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
-    } else if (d.category !== '使途不明金') {
-        // 通常の手動記録を消した場合：食費プールを戻す
+    } else if (d.category !== '使途不明金' && d.category !== '資金繰り' && d.status !== 'skipped') {
+        // 通常の手動記録を消した場合 (スキップ済みのものは既に計算外なので無視)
         if (d.type === 'expense') v2_status.foodDeposit += d.amount;
         else v2_status.foodDeposit -= d.amount;
     }
-    saveV2(); // プールの状態を保存
+    saveV2();
 
     if(d.templateId) d.status='deleted'; 
     else data.splice(i,1); 
