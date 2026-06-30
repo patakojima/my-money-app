@@ -143,7 +143,6 @@ function removeVault(id) {
 // Sync & Calc Logic (自由残高ベースの3層防衛システム)
 // ==========================================
 function calcAppBalance() {
-    // 【重要】現実の残高計算には「確定(confirmed)したデータのみ」を使用する！
     return data.filter(d => d.status === 'confirmed')
                .reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
 }
@@ -314,9 +313,6 @@ function syncTemplatesWithCycle(calc) {
     if(u) save();
 }
 
-// ==========================================
-// ★ 超重要: 3層防衛システム コア計算ロジック
-// ==========================================
 function calculateCurrentBudget() {
     const t = new Date(); t.setHours(0,0,0,0); const tStr = formatStr(t); const c = getCycle(t); 
 
@@ -342,7 +338,6 @@ function calculateCurrentBudget() {
 
     data.forEach(d => {
         if (d.status === 'confirmed' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr) {
-            // POOLから引かれたものは自由残高の消費ではない
             let isPool = false;
             if (d.memo && (d.memo.includes("POOL") || d.memo.includes("[FOOD_POOL]") || d.memo.includes("[DRINK_POOL]"))) isPool = true;
             if (d.category === '資金繰り') isPool = true;
@@ -415,7 +410,7 @@ function addData(obj) {
         fixedTemplates.push({
             id: tId, day: dObj.getDate(), time: document.getElementById("time").value || "12:00",
             type: typeVal, amount: a, category: document.getElementById("category").value || "未分類",
-            memo: memoText // FIXED予定にはマーカーを含めない方が綺麗ですが、今回はそのまま保持
+            memo: memoText 
         });
         localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
         renderTemplates();
@@ -530,7 +525,6 @@ function showDetail(id) {
     document.getElementById('detail-modal').style.display = 'flex'; 
 }
 
-// ★ 編集ロック＆再計算対応
 function updateRecord(id) { 
     const i=data.findIndex(x=>x.id===id); if(i===-1)return; 
     const d = data[i];
@@ -568,7 +562,6 @@ function updateRecord(id) {
 function confirmRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; updateRecord(id); data[i].status='confirmed'; save(); render(); }
 function skipRecord(id) { const i=data.findIndex(x=>x.id===id); if(i===-1)return; data[i].status='skipped'; save(); render(); document.getElementById('detail-modal').style.display='none'; }
 
-// ★ 確実なロールバック処理 + アラート通知
 function deleteRecord(id) { 
     if(!confirm("削除しますか？")) return; 
     const i=data.findIndex(x=>x.id===id); 
@@ -685,4 +678,74 @@ function downloadCSV() {
     const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
     if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
     const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// 🆕 完全お引越し！CSVインポート（復元）機能
+function importCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        let importedCount = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            // カンマ区切りのパース（ダブルクォート内のカンマを無視する）
+            let cols = [];
+            let inQuote = false;
+            let col = '';
+            for(let j=0; j<line.length; j++){
+                let c = line[j];
+                if(c === '"') { inQuote = !inQuote; }
+                else if(c === ',' && !inQuote) { cols.push(col); col = ''; }
+                else { col += c; }
+            }
+            cols.push(col);
+
+            if (cols.length >= 7) {
+                let dateStr = cols[0];
+                let timeStr = cols[1];
+                let typeStr = cols[2];
+                let amount = Number(cols[3]);
+                let cat = cols[4] ? cols[4].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+                let memo = cols[5] ? cols[5].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+                let statStr = cols[6];
+                let logText = cols[7] ? cols[7].replace(/^"|"$/g, '').replace(/""/g, '"').replace(/ \/ /g, '\n') : '';
+
+                let type = typeStr === '収入' ? 'income' : 'expense';
+                let status = 'confirmed';
+                if (statStr === '削除') status = 'deleted';
+                if (statStr === 'スキップ') status = 'skipped';
+                if (statStr === '予定') status = 'pending';
+
+                // 重複チェック（同じ日時・金額・カテゴリがあれば読み飛ばす）
+                const isDuplicate = data.some(d => d.date === dateStr && d.time === timeStr && d.amount === amount && d.category === cat);
+                
+                if (!isDuplicate) {
+                    data.push({
+                        id: Date.now() + importedCount, // IDを再生成
+                        date: dateStr,
+                        time: timeStr,
+                        timestamp: parseDate(dateStr).getTime(),
+                        amount: amount,
+                        type: type,
+                        category: cat,
+                        memo: memo,
+                        actionLogText: logText,
+                        status: status
+                    });
+                    importedCount++;
+                }
+            }
+        }
+        save();
+        render();
+        alert(`📥 ${importedCount}件のデータを復元（インポート）しました！\nお店データなどは手動で再設定してください。`);
+        event.target.value = ''; // 選択したファイルをリセット
+    };
+    reader.readAsText(file);
 }
