@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Integrated Ops Terminal v2.1</title>
-    <!-- キャッシュ突破 v7 -->
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -15,7 +14,6 @@
 </div>
 
 <div class="content">
-  <!-- ==================== MAIN (ダッシュボード) ==================== -->
   <div id="page-main" class="page active">
     
     <div id="stealth-trigger-area" style="user-select:none; -webkit-user-select:none; position:relative; padding:5px 0 15px;">
@@ -24,7 +22,6 @@
         <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:10px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 期間の変更</button>
       </h2>
 
-      <!-- サマリー表示 (自由残高ベース) -->
       <div class="card total-box" style="text-align: center; margin-bottom: 10px;">
         <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高</div>
         <div class="total-amount" id="total" style="font-size: 26px; font-weight: 800; margin: 5px 0;">0円</div>
@@ -35,7 +32,6 @@
         <div style="flex:1;">今週の予算<span class="budget-val" id="weekRemaining" style="display: block; font-size: 16px; font-weight: 800; margin-top: 4px;">0円</span></div>
       </div>
 
-      <!-- 食費メーター (POOL連動) -->
       <div class="card" style="margin-bottom:10px;">
         <div style="font-size:12px; font-weight:800; color:#8e8e93; margin-bottom:5px;">今月の食費POOL 残り</div>
         <div class="progress-container" style="height:14px; background:#e5e5ea; border-radius:7px; overflow:hidden;">
@@ -47,37 +43,33 @@
         </div>
       </div>
 
-      <!-- チケットインジケータ -->
       <div class="card" style="margin-bottom:10px;">
         <div style="font-size:12px; font-weight:800; color:#8e8e93; margin-bottom:8px;">飲み会チケット残数</div>
         <div id="ticket-indicator" style="display:flex; gap:6px;"></div>
       </div>
 
-      <!-- ステルス表示枠 -->
       <div id="stealth-display" style="display:none; position:absolute; top:20px; right:10px; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:10px; padding:8px 12px; border-radius:6px; z-index:100; pointer-events:none; box-shadow:0 4px 10px rgba(0,0,0,0.3); text-shadow:0 0 2px #0f0;">
           [ FOOD_POOL: <span id="st-food"></span> ]<br>
           [ DRINK_POOL: <span id="st-drink"></span> ]
       </div>
     </div>
 
-    <!-- 3本のプログレスバー (自由残高ベース) -->
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
         <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">自由予算 進捗メーター</div>
         <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[今日] <span id="main-amt-day" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-day" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
+            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[今日] <span id="main-amt-day" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-day" class="metric-val">0%</div></div>
+            <div class="progress-container"><div id="main-bar-day" class="progress-bar" style="width: 0%;"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[今週] <span id="main-amt-week" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-week" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
+            <div class="metric-header"><div class="metric-label">[今週] <span id="main-amt-week" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-week" class="metric-val">0%</div></div>
+            <div class="progress-container"><div id="main-bar-week" class="progress-bar" style="width: 0%;"></div></div>
         </div>
         <div>
-            <div class="metric-header"><div class="metric-label">[今月] <span id="main-amt-core" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-core" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
+            <div class="metric-header"><div class="metric-label">[今月] <span id="main-amt-core" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-core" class="metric-val">0%</div></div>
+            <div class="progress-container"><div id="main-bar-core" class="progress-bar" style="width: 0%;"></div></div>
         </div>
     </div>
 
-    <!-- ズレ警告 -->
     <div id="sync-warning" class="card" style="display:none; background:#FFF9F2; border:1px solid #FF9500; padding:12px;">
        <div style="display:flex; justify-content:space-between; align-items:center;">
            <div style="color:#FF9500; font-weight:800; font-size:12px; font-family:monospace;" id="sync-diff-text">⚠️ 現実とのズレ: 0円</div>
@@ -85,7 +77,6 @@
        </div>
     </div>
 
-    <!-- 手動記録 -->
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">手動記録</div>
       <div style="display:flex; gap:10px;"><input type="date" id="date" style="flex:2;"><input type="time" id="time" style="flex:1;"></div>
@@ -93,7 +84,6 @@
       
       <select id="type"><option value="expense">支出</option><option value="income">収入</option></select>
       
-      <!-- 支出元の選択 -->
       <div id="expense-source-container" style="margin: 10px 0;">
           <select id="expense-source" style="font-weight:bold; color:#007aff; background:#f0f8ff;">
               <option value="food">🥗 食費POOLから引く</option>
@@ -112,7 +102,6 @@
       <button class="main-btn" onclick="addData()">データを記録</button>
     </div>
 
-    <!-- 📥出力 と 📤復元(インポート) ボタン -->
     <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
         <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
         <div style="display:flex; gap:6px;">
@@ -125,7 +114,6 @@
     <div class="card" id="list" style="margin-top:8px;"></div>
   </div>
 
-  <!-- ==================== TERMINAL (戦場) ==================== -->
   <div id="page-terminal" class="page">
     <div class="card" style="margin-bottom:15px;">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">店舗プリセット (戦場設定)</div>
@@ -155,9 +143,9 @@
                 <div style="font-size:10px; color:#8e8e93; font-weight:bold;">TOTAL_EST: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
                 <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
             </div>
-            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-day" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-week" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-core" class="metric-val">100%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[DAY] <span id="amt-day" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-day" class="metric-val">0%</div></div><div class="progress-container"><div id="bar-day" class="progress-bar" style="width:0%;"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[WEEK] <span id="amt-week" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-week" class="metric-val">0%</div></div><div class="progress-container"><div id="bar-week" class="progress-bar" style="width:0%;"></div></div></div>
+            <div><div class="metric-header"><div class="metric-label">[CORE] <span id="amt-core" class="metric-amt">USED: 0MB / MAX: 0MB</span></div><div id="val-core" class="metric-val">0%</div></div><div class="progress-container"><div id="bar-core" class="progress-bar" style="width:0%;"></div></div></div>
         </div>
         <div class="card" style="padding:20px;">
             <div class="task-selector">
@@ -187,15 +175,12 @@
     </div>
   </div>
 
-  <!-- ==================== FIXD (司令部) ==================== -->
   <div id="page-fixed" class="page">
     <h2>司令部 (V2 STATUS)</h2>
     
-    <!-- V2 設定パネル -->
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea;">
         <div style="font-size:11px; font-weight:800; color:#8e8e93; margin-bottom:10px;">防衛ライン設定</div>
         
-        <!-- 追加: チケット残数を手動調整できる枠を追加 -->
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;">
             <div>
                 <small style="font-weight:bold; color:#666;">🎫 単価(¥)</small>
@@ -223,7 +208,6 @@
         <button class="main-btn" style="background:#1c1c1e;" onclick="saveV2Config()">設定を更新</button>
     </div>
 
-    <!-- 資金繰り -->
     <div class="card" style="border:2px solid #007aff; background:#F0F8FF;">
         <div style="font-size:11px; font-weight:800; color:#007aff; margin-bottom:5px;">社長の資金繰り</div>
         <p style="font-size:11px; color:#333; margin:0 0 10px 0;">飲み代デポジットがショートした場合、自己責任で食費から補填します。</p>
@@ -246,7 +230,6 @@
     <div class="card"><div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div><div id="template-list-ui"></div></div>
   </div>
 
-  <!-- ==================== VAULT (金庫室) ==================== -->
   <div id="page-vault" class="page">
       <h2>金庫室 (VAULT)</h2>
       
@@ -272,7 +255,6 @@
 
 </div>
 
-<!-- Modals -->
 <div id="checkout-modal" class="modal-overlay">
     <div class="modal-content">
         <h3 style="margin:0 0 10px;">Final Accounting</h3>
@@ -318,8 +300,7 @@
     <button class="tab-item" onclick="switchPage('vault', this)">🏦 VAULT</button>
 </nav>
 
-<!-- キャッシュ突破 v7 -->
-<script src="script.js?v=7"></script>
+<script src="script.js?v=8"></script>
 </body>
 </html>
 
