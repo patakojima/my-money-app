@@ -8,7 +8,7 @@ let fixedTemplates = JSON.parse(localStorage.getItem("fixedTemplates")) || [];
 let customEnds = JSON.parse(localStorage.getItem("customCycleEnds")) || {}; 
 let customStarts = JSON.parse(localStorage.getItem("customCycleStarts")) || {}; 
 
-// V2 State (drinkDepositMax も初期設定に追加)
+// V2 State
 let v2_status = JSON.parse(localStorage.getItem("v2_status")) || {
     ticketRemaining: 5, ticketMax: 5, ticketBaseAmount: 2500,
     foodDeposit: 30000, foodDepositMax: 30000,
@@ -206,7 +206,7 @@ function saveV2Config() {
     v2_status.drinkDeposit = Number(document.getElementById('cfg-d-pool').value) || 0;
     
     v2_status.foodDepositMax = v2_status.foodDeposit;
-    v2_status.drinkDepositMax = v2_status.drinkDeposit; // ドリンクMAXも保存
+    v2_status.drinkDepositMax = v2_status.drinkDeposit; 
     
     if(v2_status.ticketRemaining > v2_status.ticketMax) v2_status.ticketRemaining = v2_status.ticketMax;
     saveV2(); render();
@@ -443,7 +443,6 @@ function render() {
     updateMainProgressBar();
 }
 
-// ★ メーターのUSAGE（使用量）化 ＆ TERMINAL戦場専用メーター
 function updateMainProgressBar() {
     updateMainView();
 
@@ -464,7 +463,6 @@ function updateMainProgressBar() {
     }
 
     if (!isTerm) {
-        // MAIN画面 (日常の自由予算メーター)
         const uMain = (bId, vId, aId, maxVal, remainVal) => { 
             let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId); 
             if(!b || !v || !a) return;
@@ -487,7 +485,6 @@ function updateMainProgressBar() {
         uMain('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining); 
         uMain('main-bar-core','main-val-core','main-amt-core', coreMax, c.freeBalance);
     } else {
-        // ★ TERMINAL画面 (戦場専用メーター：リアルタイム連動)
         let tMax = v2_status.ticketMax || 5;
         let tRem = v2_status.ticketRemaining || 0;
         let tUsed = tMax - tRem;
@@ -775,6 +772,86 @@ function importCSV(event) {
         save();
         render();
         alert(`📥 ${importedCount}件のデータを復元（インポート）しました！\nお店データなどは手動で再設定してください。`);
+        event.target.value = ''; 
+    };
+    reader.readAsText(file);
+}
+
+// 🆕 FIXED用CSV出力機能
+function downloadFixedCSV() {
+    if (!fixedTemplates || fixedTemplates.length === 0) { alert("出力するデータがありません。"); return; }
+    let csvContent = "\uFEFF日,時間,収支,金額,カテゴリ,メモ\n";
+    const sortedData = [...fixedTemplates].sort((a,b) => a.day - b.day);
+    sortedData.forEach(t => {
+        let type = t.type === 'income' ? '収入' : '支出';
+        let cat = `"${(t.category || "").replace(/"/g, '""')}"`; 
+        let memo = `"${(t.memo || "").replace(/"/g, '""')}"`; 
+        csvContent += `${t.day},${t.time||""},${type},${t.amount},${cat},${memo}\n`;
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `fixed_data_${today}.csv`;
+    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
+    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
+
+// 🆕 FIXED用CSV読込（インポート）機能
+function importFixedCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        let importedCount = 0;
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            
+            let cols = [];
+            let inQuote = false;
+            let col = '';
+            for(let j=0; j<line.length; j++){
+                let c = line[j];
+                if(c === '"') { inQuote = !inQuote; }
+                else if(c === ',' && !inQuote) { cols.push(col); col = ''; }
+                else { col += c; }
+            }
+            cols.push(col);
+
+            if (cols.length >= 6) {
+                let day = Number(cols[0]);
+                if (isNaN(day) || day < 1 || day > 31) continue;
+                let timeStr = cols[1] || "10:00";
+                let typeStr = cols[2];
+                let amount = Number(cols[3]);
+                if (isNaN(amount) || amount <= 0) continue;
+                let cat = cols[4] ? cols[4].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+                let memo = cols[5] ? cols[5].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+
+                let type = typeStr === '収入' ? 'income' : 'expense';
+
+                // 重複チェック (同じ日、同じ金額、同じカテゴリがあればスキップ)
+                const isDuplicate = fixedTemplates.some(t => t.day === day && t.amount === amount && t.category === cat);
+                
+                if (!isDuplicate) {
+                    fixedTemplates.push({
+                        id: Date.now() + importedCount,
+                        day: day,
+                        time: timeStr,
+                        type: type,
+                        amount: amount,
+                        category: cat,
+                        memo: memo
+                    });
+                    importedCount++;
+                }
+            }
+        }
+        localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
+        renderTemplates();
+        render();
+        alert(`📥 ${importedCount}件の毎月の予定（FIXED）データを追加しました！`);
         event.target.value = ''; 
     };
     reader.readAsText(file);
