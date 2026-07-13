@@ -1,317 +1,103 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Integrated Ops Terminal v2.1</title>
-    <link rel="stylesheet" href="style.css?v=10">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>System Console</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="header">
-    <div class="sys-title" id="display-title">メインダッシュボード</div>
-    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;"><span class="status-dot"></span>LIVE_LINK</div>
-</div>
+  <div class="header" id="header-title">MAIN - 大本営</div>
 
-<div class="content">
-  <div id="page-main" class="page active">
-    
-    <div id="stealth-trigger-area" style="user-select:none; -webkit-user-select:none; position:relative; padding:5px 0 15px;">
-      <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
-        <span id="cycle-title" style="font-size:18px;">現在の実績</span>
-        <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:10px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 期間の変更</button>
-      </h2>
-
-      <div class="card total-box" style="text-align: center; margin-bottom: 10px;">
-        <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高</div>
-        <div class="total-amount" id="total" style="font-size: 26px; font-weight: 800; margin: 5px 0;">0円</div>
-      </div>
-      <div class="card budget-info" style="display: flex; justify-content: space-around; text-align: center; font-size: 13px; margin-bottom: 15px; padding: 12px;">
-        <div style="flex:1;">今日の予算<span class="budget-val" id="todayBudget" style="display: block; font-size: 16px; font-weight: 800; margin-top: 4px; color:#007aff;">0円</span></div>
-        <div style="width:1px; background:#eee;"></div>
-        <div style="flex:1;">今週の予算<span class="budget-val" id="weekRemaining" style="display: block; font-size: 16px; font-weight: 800; margin-top: 4px;">0円</span></div>
-      </div>
-
-      <div class="card" style="margin-bottom:10px;">
-        <div style="font-size:12px; font-weight:800; color:#8e8e93; margin-bottom:5px;">今月の食費POOL 残り</div>
-        <div class="progress-container" style="height:14px; background:#e5e5ea; border-radius:7px; overflow:hidden;">
-          <div id="food-bar" class="progress-bar" style="height:100%; width:100%; background:#34C759; transition:width 0.3s;"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-top:5px; font-family:monospace; font-weight:bold;">
-          <span id="food-rem-val" style="font-size:16px;">¥0</span>
-          <span id="food-budget-val" style="color:#8e8e93; font-size:12px; margin-top:3px;">/ ¥0</span>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:10px;">
-        <div style="font-size:12px; font-weight:800; color:#8e8e93; margin-bottom:8px;">飲み会チケット残数</div>
-        <div id="ticket-indicator" style="display:flex; gap:6px;"></div>
-      </div>
-
-      <div id="stealth-display" style="display:none; position:absolute; top:20px; right:10px; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:10px; padding:8px 12px; border-radius:6px; z-index:100; pointer-events:none; box-shadow:0 4px 10px rgba(0,0,0,0.3); text-shadow:0 0 2px #0f0;">
-          [ FOOD_POOL: <span id="st-food"></span> ]<br>
-          [ DRINK_POOL: <span id="st-drink"></span> ]
-      </div>
-    </div>
-
-    <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
-        <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">自由予算 進捗メーター</div>
-        <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[今日] <span id="main-amt-day" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-day" class="metric-val">0%</div></div>
-            <div class="progress-container"><div id="main-bar-day" class="progress-bar" style="width: 0%;"></div></div>
-        </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[今週] <span id="main-amt-week" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-week" class="metric-val">0%</div></div>
-            <div class="progress-container"><div id="main-bar-week" class="progress-bar" style="width: 0%;"></div></div>
-        </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[今月] <span id="main-amt-core" class="metric-amt">支出 0円 / 予算 0円</span></div><div id="main-val-core" class="metric-val">0%</div></div>
-            <div class="progress-container"><div id="main-bar-core" class="progress-bar" style="width: 0%;"></div></div>
-        </div>
-    </div>
-
-    <div id="sync-warning" class="card" style="display:none; background:#FFF9F2; border:1px solid #FF9500; padding:12px;">
-       <div style="display:flex; justify-content:space-between; align-items:center;">
-           <div style="color:#FF9500; font-weight:800; font-size:12px; font-family:monospace;" id="sync-diff-text">⚠️ 現実とのズレ: 0円</div>
-           <button class="main-btn" style="margin:0; width:auto; background:#FF9500; padding:6px 12px; font-size:10px;" onclick="syncRealCash()">SYNCHRONIZE</button>
-       </div>
-    </div>
-
+  <div id="screen-main" class="screen active">
     <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">手動記録</div>
-      <div style="display:flex; gap:10px;"><input type="date" id="date" style="flex:2;"><input type="time" id="time" style="flex:1;"></div>
-      <input type="number" id="amount" placeholder="金額" inputmode="numeric">
-      
-      <select id="type"><option value="expense">支出</option><option value="income">収入</option></select>
-      
-      <div id="expense-source-container" style="margin: 10px 0;">
-          <select id="expense-source" style="font-weight:bold; color:#007aff; background:#f0f8ff;">
-              <option value="food">🥗 食費POOLから引く</option>
-              <option value="free" selected>👛 自由に使える残高から引く</option>
-              <option value="drink">🍻 飲み代POOLから引く</option>
-          </select>
+      <h2>食費（日常）プール</h2>
+      <div class="meter-wrap">
+        <div class="meter-label"><span>残高</span><span id="food-balance">¥0</span></div>
+        <div class="meter-bg"><div class="meter-fill" id="food-meter" style="width: 100%;"></div></div>
+        <div id="daily-budget-display" class="daily-budget-info">作戦猶予：残り - 日 ／ 当日予算：¥-</div>
       </div>
-
-      <input type="text" id="category" placeholder="カテゴリ"><input type="text" id="memo" placeholder="メモ">
-      
-      <label style="display:flex; align-items:center; gap:8px; margin: 12px 4px 5px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;">
-          <input type="checkbox" id="is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;">
-          <span style="padding-top:2px;">FIXED(固定費)に登録して保留</span>
-      </label>
-
-      <button class="main-btn" onclick="addData()">データを記録</button>
-    </div>
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
-        <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
-        <div style="display:flex; gap:6px;">
-            <label for="csv-upload" class="main-btn" style="background:#8e8e93; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1); margin:0; cursor:pointer;">📤 復元</label>
-            <input type="file" id="csv-upload" accept=".csv" style="display:none;" onchange="importCSV(event)">
-            <button onclick="downloadCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1); margin:0;">📥 出力</button>
-        </div>
-    </div>
-    
-    <div class="card" id="list" style="margin-top:8px;"></div>
-  </div>
-
-  <div id="page-terminal" class="page">
-    <div class="card" style="margin-bottom:15px;">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">店舗プリセット (戦場設定)</div>
-      <input type="hidden" id="edit-store-id"><input type="text" id="store-name" placeholder="店名">
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[A] D1単価</div><input type="number" id="price-a" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[B] D2単価</div><input type="number" id="price-b" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-      </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="store-save-btn" class="main-btn" style="background:#666; margin-top:0;" onclick="saveStore()">新規追加</button>
-          <button id="store-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditStore()">キャンセル</button>
-      </div>
-      <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
-    </div>
-
-    <div id="project-selector-area" class="card">
-        <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">SELECT_ACTIVE_PROJECT</div>
-        <select id="active-project-id"></select>
-    </div>
-    <div id="active-terminal-area" style="display:none;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D</div><div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div></div>
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F</div><div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div></div>
-        </div>
-        <div class="card" style="margin-top:-5px; background:#f4f4f5; border:1px solid #e5e5ea;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">TOTAL_EST: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
-                <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
-            </div>
-            
-            <div><div class="metric-header"><div class="metric-label">[TICKET] <span id="term-amt-ticket" class="metric-amt">USED: 0枚 / MAX: 0枚</span></div><div id="term-val-ticket" class="metric-val">0%</div></div><div class="progress-container"><div id="term-bar-ticket" class="progress-bar" style="width:0%;"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[DRINK_POOL] <span id="term-amt-drink" class="metric-amt">USED: 0円 / MAX: 0円</span></div><div id="term-val-drink" class="metric-val">0%</div></div><div class="progress-container"><div id="term-bar-drink" class="progress-bar" style="width:0%;"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[FOOD_POOL] <span id="term-amt-food" class="metric-amt">USED: 0円 / MAX: 0円</span></div><div id="term-val-food" class="metric-val">0%</div></div><div class="progress-container"><div id="term-bar-food" class="progress-bar" style="width:0%;"></div></div></div>
-            
-        </div>
-        <div class="card" style="padding:20px;">
-            <div class="task-selector">
-                <button class="task-btn" onclick="commitTaskA()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task A</b><span id="label-price-a">0</span></button>
-                <button class="task-btn" onclick="commitTaskB()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task B</b><span id="label-price-b">0</span></button>
-                <button id="btn-task-f" class="task-btn" onclick="selectTaskF()"><b>Task F</b><span>MANUAL</span></button>
-            </div>
-            <div class="num-grid">
-                <button class="num-btn" onclick="commitNum(3)">③</button><button class="num-btn" onclick="commitNum(4)">④</button><button class="num-btn" onclick="commitNum(5)">⑤</button>
-                <button class="num-btn" onclick="commitNum(6)">⑥</button><button class="num-btn" onclick="commitNum(7)">⑦</button><button class="num-btn" onclick="commitNum(8)">⑧</button>
-                <button class="num-btn" onclick="commitNum(9)">⑨</button><button class="num-btn" onclick="commitNum(10)">⑩</button><button class="num-btn" onclick="commitNum(11)">⑪</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div class="extra-toggle"><button id="ext-btn-d" class="ext-btn active-d" onclick="setExtraMode('D')">D</button><button id="ext-btn-f" class="ext-btn" onclick="setExtraMode('F')">F</button></div>
-                <input type="number" id="extra-cost" placeholder="DIRECT_INPUT" inputmode="numeric" style="margin:0;">
-                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra Cost</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div style="display:flex; gap:8px;"><input type="text" id="stealth-memo-input" placeholder="MEMO_INPUT" style="margin:0;"><button class="main-btn" style="margin:0; width:80px; background:#34C759;" onclick="addStealthMemo()">SAVE</button></div>
-            </div>
-            <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div><div id="action-log-list" class="action-log-list"></div>
-            </div>
-            <button class="main-btn" style="background:#ff3b30; padding:18px; margin-top:20px;" onclick="showCheckout()">COMPLETE_PROJECT</button>
-            <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
-        </div>
-    </div>
-  </div>
-
-  <div id="page-fixed" class="page">
-    <h2>司令部 (V2 STATUS)</h2>
-    
-    <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea;">
-        <div style="font-size:11px; font-weight:800; color:#8e8e93; margin-bottom:10px;">防衛ライン設定</div>
-        
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:10px;">
-            <div>
-                <small style="font-weight:bold; color:#666;">🎫 単価(¥)</small>
-                <input type="number" id="cfg-t-base" inputmode="numeric" style="padding:10px 5px; font-size:14px;">
-            </div>
-            <div>
-                <small style="font-weight:bold; color:#666;">🎟️ 最大数</small>
-                <input type="number" id="cfg-t-max" inputmode="numeric" style="padding:10px 5px; font-size:14px;">
-            </div>
-            <div>
-                <small style="font-weight:bold; color:#FF9500;">🎟️ 残数</small>
-                <input type="number" id="cfg-t-rem" inputmode="numeric" style="padding:10px 5px; font-size:14px;">
-            </div>
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div>
-                <small style="font-weight:bold; color:#34C759;">🥗 食費POOL(¥)</small>
-                <input type="number" id="cfg-f-pool" inputmode="numeric">
-            </div>
-            <div>
-                <small style="font-weight:bold; color:#FF9500;">🍻 飲み代POOL(¥)</small>
-                <input type="number" id="cfg-d-pool" inputmode="numeric">
-            </div>
-        </div>
-        <button class="main-btn" style="background:#1c1c1e;" onclick="saveV2Config()">設定を更新</button>
-    </div>
-
-    <div class="card" style="border:2px solid #007aff; background:#F0F8FF;">
-        <div style="font-size:11px; font-weight:800; color:#007aff; margin-bottom:5px;">社長の資金繰り</div>
-        <p style="font-size:11px; color:#333; margin:0 0 10px 0;">飲み代デポジットがショートした場合、自己責任で食費から補填します。</p>
-        <button class="main-btn" style="background:#007aff; font-size:14px; padding:16px;" onclick="transferFund()">🔄 FUND_TRANSFER: FOOD ➔ DRINK</button>
-    </div>
-
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:30px; margin-bottom:10px; padding: 0 5px;">
-        <h2 style="margin:0; text-align:left;">毎月の予定（FIXED）</h2>
-        <div style="display:flex; gap:6px;">
-            <label for="csv-upload-fixed" class="main-btn" style="background:#8e8e93; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1); margin:0; cursor:pointer;">📤 読込</label>
-            <input type="file" id="csv-upload-fixed" accept=".csv" style="display:none;" onchange="importFixedCSV(event)">
-            <button onclick="downloadFixedCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1); margin:0;">📥 出力</button>
-        </div>
     </div>
     
     <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">テンプレート登録・編集</div>
-      <input type="hidden" id="edit-tpl-id">
-      <div style="display:flex; gap:10px;"><input type="number" id="tpl-day" placeholder="日(1〜31)" inputmode="numeric" style="flex:1;"><input type="time" id="tpl-time" value="10:00" style="flex:1;"></div>
-      <select id="tpl-type"><option value="income">収入</option><option value="expense">支出</option></select>
-      <input type="number" id="tpl-amount" placeholder="金額" inputmode="numeric">
-      <input type="text" id="tpl-category" placeholder="カテゴリ"><input type="text" id="tpl-memo" placeholder="メモ">
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="tpl-save-btn" class="main-btn" style="margin-top:0;" onclick="saveTemplate()">追加</button>
-          <button id="tpl-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditTemplate()">キャンセル</button>
-      </div>
-    </div>
-    <div class="card"><div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div><div id="template-list-ui"></div></div>
-  </div>
-
-  <div id="page-vault" class="page">
-      <h2>金庫室 (VAULT)</h2>
-      
-      <div class="card" style="background: linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 100%); color:white;">
-          <div style="font-size:11px; font-weight:800; color:#8e8e93; letter-spacing:1px;">TOTAL REAL CASH</div>
-          <div id="vault-total" style="font-size:32px; font-weight:800; font-family:monospace; margin-top:5px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">¥0</div>
-      </div>
-
-      <div class="card">
-          <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">キャッシュポジション</div>
-          <p style="font-size:11px; color:#666; margin-top:0;">実際の口座・財布の残高を気が向いた時に上書き更新してください。</p>
-          <div id="vault-list-ui"></div>
-          
-          <div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;">
-              <div style="font-size:10px; font-weight:bold; color:#8e8e93; margin-bottom:8px;">＋ ADD NEW VAULT</div>
-              <div style="display:flex; gap:8px;">
-                  <input type="text" id="new-vault-name" placeholder="財布の現金 / メイン銀行 等" style="flex:2; margin:0;">
-                  <button class="main-btn" style="flex:1; margin:0;" onclick="addVault()">追加</button>
-              </div>
-          </div>
-      </div>
-  </div>
-
-</div>
-
-<div id="checkout-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px;">Final Accounting</h3>
-        <input type="number" id="final-amount" placeholder="最終金額 / FINAL AMOUNT" inputmode="numeric">
-        <button class="main-btn" onclick="finishProject()">EXECUTE (確定)</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCheckout()">CANCEL</button>
-    </div>
-</div>
-
-<div id="detail-modal" class="modal-overlay"><div class="modal-content" id="detail-content"></div></div>
-
-<div id="stealth-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px;">EDIT_LOG</h3>
-        <input type="hidden" id="stealth-edit-id">
-        <input type="text" id="stealth-edit-label" placeholder="LABEL">
-        <input type="number" id="stealth-edit-cost" placeholder="COST" inputmode="numeric">
-        <button class="main-btn" onclick="saveActionEdit()">SAVE</button>
-        <button class="main-btn" style="background:#ccc;" onclick="document.getElementById('stealth-edit-modal').style.display='none'">CANCEL</button>
-    </div>
-</div>
-
-<div id="cycle-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの期間設定</h3>
-        <p style="font-size:12px; color:#666;">今サイクルの開始日と最終日をカスタム設定できます。</p>
-        <input type="hidden" id="cycle-edit-key">
-        <div style="display:flex; gap:10px; align-items:center; margin:15px 0;">
-            <input type="date" id="cycle-edit-start-date" style="margin:0; padding:10px; flex:1;">
-            <span style="font-weight:bold; color:#8e8e93;">〜</span>
-            <input type="date" id="cycle-edit-date" style="margin:0; padding:10px; flex:1;">
+      <h2>外食・飲みチケット</h2>
+      <div class="meter-wrap">
+        <div class="meter-label">
+          <span>残りチケット</span>
+          <span id="drink-tickets" class="ticket-safe">0 枚</span>
         </div>
-        <button class="main-btn" style="background:#34C759;" onclick="saveCycleEnd()">設定を保存</button>
-        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (前月末〜今月末)</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCycleEditModal()">キャンセル</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<nav class="tab-bar">
-    <button class="tab-item active" onclick="switchPage('main', this)">📊 MAIN</button>
-    <button class="tab-item" onclick="switchPage('terminal', this)">🛰️ TERMINAL</button>
-    <button class="tab-item" onclick="switchPage('fixed', this)">🗓️ FIXD</button>
-    <button class="tab-item" onclick="switchPage('vault', this)">🏦 VAULT</button>
-</nav>
+  <div id="screen-terminal" class="screen">
+    <div id="stealth-status-bar" class="status-safe">[ ONLINE ]</div>
+    
+    <div class="card">
+      <h2 style="font-family: monospace;">SYSTEM CONSOLE</h2>
+      <div id="stealth-display" style="font-family: monospace; font-size: 24px; text-align: right; padding: 10px; background: #eee; border-radius: 8px; margin-bottom: 15px;">0</div>
+      
+      <div style="display: flex; gap: 10px;">
+        <button onclick="stealthAction('D')" style="background: #34C759;">Task D (Drink)</button>
+        <button onclick="stealthAction('F')" style="background: #007aff;">Task F (Food)</button>
+      </div>
 
-<script src="script.js?v=10"></script>
+      <div class="numpad">
+        <button onclick="stealthInput(1)">1</button>
+        <button onclick="stealthInput(2)">2</button>
+        <button onclick="stealthInput(3)">3</button>
+        <button onclick="stealthInput(4)">4</button>
+        <button onclick="stealthInput(5)">5</button>
+        <button onclick="stealthInput(6)">6</button>
+        <button onclick="stealthInput(7)">7</button>
+        <button onclick="stealthInput(8)">8</button>
+        <button onclick="stealthInput(9)">9</button>
+        <button onclick="stealthClear()" style="background: #ffcc00; color: #000;">C</button>
+        <button onclick="stealthInput(0)">0</button>
+        <button onclick="stealthEnter()" style="background: #007aff; color: #fff;">EXE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-fixd" class="screen">
+    <div class="card">
+      <h2>毎月の予定 (FIXED)</h2>
+      <button onclick="alert('FIXED設定機能（既存コード）')">テンプレート追加・編集</button>
+    </div>
+  </div>
+
+  <div id="screen-vault" class="screen">
+    <div class="card">
+      <h2>設定＆データ保護 (SET)</h2>
+      <label>次回給料日 (月末判定用)</label>
+      <input type="date" id="setting-paydate" onchange="saveSettings()">
+      
+      <label>食費 初期値</label>
+      <input type="number" id="setting-food-init" onchange="saveSettings()">
+      
+      <label>チケット 初期枚数</label>
+      <input type="number" id="setting-ticket-init" onchange="saveSettings()">
+
+      <label>当日予算 生存限界値 (赤警告ライン)</label>
+      <input type="number" id="setting-survival-limit" value="1000" onchange="saveSettings()">
+
+      <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+      
+      <h2>Emergency Backup</h2>
+      <button onclick="exportData()" class="btn-secondary">📤 データ退避/移行用テキストコピー</button>
+      <div id="env-indicator">実行環境: 判定中...</div>
+    </div>
+  </div>
+
+  <div class="tab-container">
+    <button class="tab-btn active" onclick="switchTab('main')">MAIN</button>
+    <button class="tab-btn" onclick="switchTab('terminal')">TERMINAL</button>
+    <button class="tab-btn" onclick="switchTab('fixd')">FIXD</button>
+    <button class="tab-btn" onclick="switchTab('vault')">VAULT/SET</button>
+  </div>
+
+  <script src="script.js?v=22"></script>
 </body>
 </html>
-
 
