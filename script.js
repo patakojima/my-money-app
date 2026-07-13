@@ -269,7 +269,7 @@ function renderTemplates() {
         </div>
     `).join(''); 
 }
-function editTemplateUI(id) { const t = fixedTemplates.find(x=>x.id==id); if(!t) return; document.getElementById('edit-tpl-id').value=t.id; document.getElementById('tpl-day').value=t.day; document.getElementById('tpl-time').value=t.time||"10:00"; document.getElementById('tpl-type').value=t.type; document.getElementById('tpl-amount').value=t.amount; document.getElementById('tpl-category').value=t.category; document.getElementById('tpl-memo').value=t.memo||""; document.getElementById('tpl-save-btn').innerText="保存"; document.getElementById('tpl-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
+function editTemplateUI(id) { const t = fixedTemplates.find(x=>x.id==id); if(!t) return; document.getElementById('edit-tpl-id').value=t.id; document.getElementById('tpl-day').value=t.day; document.getElementById('tpl-time').value=t.time||"10:00"; document.getElementById('tpl-type').value=t.type; document.getElementById('tpl-amount').value=t.amount; document.getElementById('tpl-category').value=t.category; document.getElementById('tpl-memo').value=t.memo||""; document.getElementById('tpl-save-btn').innerText="保存"; document.getElementById('tpl-cancel-btn').style.display="block"; const targetEl = document.getElementById('tpl-day'); if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function cancelEditTemplate() { document.getElementById('edit-tpl-id').value=""; document.getElementById('tpl-day').value=""; document.getElementById('tpl-amount').value=""; document.getElementById('tpl-category').value=""; document.getElementById('tpl-memo').value=""; document.getElementById('tpl-save-btn').innerText="追加"; document.getElementById('tpl-cancel-btn').style.display="none"; }
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
@@ -437,16 +437,7 @@ function render() {
     });
 
     const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.freeBalance.toLocaleString()+"円";
-    const tbEl = document.getElementById("todayBudget"); 
-    if(tbEl) {
-        tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
-        // --- ver.2.2 追加：生存限界値(1000円)アラート ---
-        if (c.todayBudget < 1000) {
-            tbEl.classList.add("text-critical");
-        } else {
-            tbEl.classList.remove("text-critical");
-        }
-    }
+    const tbEl = document.getElementById("todayBudget"); if(tbEl) tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
     const wrEl = document.getElementById("weekRemaining"); if(wrEl) wrEl.innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
 
     updateMainProgressBar();
@@ -632,7 +623,7 @@ function deleteRecord(id) {
     save(); render(); document.getElementById('detail-modal').style.display='none'; 
 }
 
-function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
+function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; const targetEl = document.getElementById('store-name'); if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
 function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); if(!sel)return; const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
@@ -667,22 +658,6 @@ function updateTDisplay() {
         l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     } 
     saveTerminalDraft(); 
-
-    // --- ver.2.2 追加：ステルスバーの杯数連動アニメーション ---
-    const statusBar = document.getElementById('stealth-status-bar');
-    if (statusBar) {
-        statusBar.classList.remove('status-safe', 'status-warning', 'status-critical');
-        if (mDCount <= 2) {
-            statusBar.innerText = "[ ONLINE - SESSION SAFE ]";
-            statusBar.classList.add('status-safe');
-        } else if (mDCount === 3) {
-            statusBar.innerText = "[ SYNCING... - WARNING ]";
-            statusBar.classList.add('status-warning');
-        } else {
-            statusBar.innerText = "[ OVERLOAD / LIMIT EXCEEDED ]";
-            statusBar.classList.add('status-critical');
-        }
-    }
 }
 function logT(m) { const e=document.getElementById('log-msg'); if(!e)return; e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
