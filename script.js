@@ -437,7 +437,16 @@ function render() {
     });
 
     const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.freeBalance.toLocaleString()+"円";
-    const tbEl = document.getElementById("todayBudget"); if(tbEl) tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
+    const tbEl = document.getElementById("todayBudget"); 
+    if(tbEl) {
+        tbEl.innerText=(c.todayBudget>0?c.todayBudget.toLocaleString():0)+"円";
+        // --- ver.2.2 追加：生存限界値(1000円)アラート ---
+        if (c.todayBudget < 1000) {
+            tbEl.classList.add("text-critical");
+        } else {
+            tbEl.classList.remove("text-critical");
+        }
+    }
     const wrEl = document.getElementById("weekRemaining"); if(wrEl) wrEl.innerText=(c.weekRemaining>0?c.weekRemaining.toLocaleString():0)+"円";
 
     updateMainProgressBar();
@@ -658,6 +667,22 @@ function updateTDisplay() {
         l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     } 
     saveTerminalDraft(); 
+
+    // --- ver.2.2 追加：ステルスバーの杯数連動アニメーション ---
+    const statusBar = document.getElementById('stealth-status-bar');
+    if (statusBar) {
+        statusBar.classList.remove('status-safe', 'status-warning', 'status-critical');
+        if (mDCount <= 2) {
+            statusBar.innerText = "[ ONLINE - SESSION SAFE ]";
+            statusBar.classList.add('status-safe');
+        } else if (mDCount === 3) {
+            statusBar.innerText = "[ SYNCING... - WARNING ]";
+            statusBar.classList.add('status-warning');
+        } else {
+            statusBar.innerText = "[ OVERLOAD / LIMIT EXCEEDED ]";
+            statusBar.classList.add('status-critical');
+        }
+    }
 }
 function logT(m) { const e=document.getElementById('log-msg'); if(!e)return; e.innerHTML=`STATUS: ${m}<br>READY`; setTimeout(()=>e.innerHTML="SYSTEM: STANDBY<br>AWAITING INPUT...",1500); }
 function showCheckout() { document.getElementById('checkout-modal').style.display='flex'; document.getElementById('final-amount').value=mTotal>0?mTotal:""; }
@@ -855,8 +880,5 @@ function importFixedCSV(event) {
         event.target.value = ''; 
     };
     reader.readAsText(file);
-    
 }
-
-
 
