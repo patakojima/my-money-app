@@ -99,7 +99,7 @@
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
         <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
-        <button onclick="downloadCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1);">📥 CSV出力</button>
+        <button onclick="exportCSV('log')" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1);">📥 CSV出力</button>
     </div>
     
     <div class="card" id="list" style="margin-top:8px;"></div>
@@ -170,10 +170,6 @@
           <button id="tpl-save-btn" class="main-btn" style="margin-top:0;" onclick="saveTemplate()">追加</button>
           <button id="tpl-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditTemplate()">キャンセル</button>
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button onclick="downloadFixedCSV()" style="flex:1; background:#007aff; border:none; border-radius:6px; padding:8px; font-size:11px; font-weight:bold; color:white;">📥 FIXED出力</button>
-          <label style="flex:1; background:#34C759; border-radius:6px; padding:8px; font-size:11px; font-weight:bold; color:white; text-align:center; cursor:pointer; margin:0;">📤 FIXED読込<input type="file" accept=".csv" onchange="importFixedCSV(event)" style="display:none;"></label>
-      </div>
     </div>
 
     <div class="card">
@@ -187,7 +183,39 @@
         <button class="main-btn" style="background:#FF9500; margin-top:8px;" onclick="transferFund()">🚨 FUND_TRANSFER (食費 ➔ 飲み代)</button>
     </div>
 
-    <div class="card"><div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div><div id="template-list-ui"></div></div>
+    <div class="card">
+      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div>
+      <div id="template-list-ui"></div>
+    </div>
+
+    <!-- 3系統独立型 CSV入出力コンソール -->
+    <div class="card system-card" style="border: 2px solid #34C759; background: #F2FFF5;">
+        <div style="font-size:11px; font-weight:700; color:#34C759; margin-bottom:10px;">システム・データ防衛（CSV一括入出力）</div>
+        
+        <div class="csv-group">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:5px; color:#333;">1. ACTIVITY_LOG (履歴・支出)</div>
+            <div class="btn-row">
+                <button onclick="exportCSV('log')" class="export-btn">📥 出力</button>
+                <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'log')" style="display:none;"></label>
+            </div>
+        </div>
+
+        <div class="csv-group">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:5px; color:#333;">2. FIXED_COST (固定費テンプレート)</div>
+            <div class="btn-row">
+                <button onclick="exportCSV('fixed')" class="export-btn">📥 出力</button>
+                <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'fixed')" style="display:none;"></label>
+            </div>
+        </div>
+
+        <div class="csv-group">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:5px; color:#333;">3. VAULT_DATA (金庫・口座残高)</div>
+            <div class="btn-row">
+                <button onclick="exportCSV('vault')" class="export-btn">📥 出力</button>
+                <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'vault')" style="display:none;"></label>
+            </div>
+        </div>
+    </div>
   </div>
 
   <div id="page-vault" class="page">
