@@ -257,10 +257,17 @@ function resetCycleEnd() {
 function renderTemplates() { 
     const ui = document.getElementById('template-list-ui');
     if(!ui) return;
+    
+    // 【修正箇所】 テンプレートのカテゴリ横にメモ（(メモ内容)の形式）を表示するように追加
     ui.innerHTML = fixedTemplates.sort((a,b)=>a.day-b.day).map((t,i) => `
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:10px 0;border-bottom:1px dashed #eee;">
-            <div><span style="color:#8e8e93;font-family:monospace;margin-right:5px;">${t.day}日</span><span style="color:${t.type==='expense'?'#dc3545':'#28a745'};font-weight:bold;">${t.type==='expense'?'[-]':'[+]'}</span> ${t.category}</div>
-            <div style="display:flex; gap:6px; align-items:center;">
+            <div>
+                <span style="color:#8e8e93;font-family:monospace;margin-right:5px;">${t.day}日</span>
+                <span style="color:${t.type==='expense'?'#dc3545':'#28a745'};font-weight:bold;">${t.type==='expense'?'[-]':'[+]'}</span> 
+                ${t.category} 
+                ${t.memo ? `<div style="font-size:12px; color:#666; margin-top:4px; margin-left: 28px;">(${t.memo})</div>` : ''}
+            </div>
+            <div style="display:flex; gap:6px; align-items:center; flex-shrink: 0;">
                 <span style="margin-right:6px; font-weight:bold;">${t.amount.toLocaleString()}円</span>
                 <button class="main-btn" onclick="editTemplateUI(${t.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;margin:0;">編集</button>
                 <button class="main-btn" onclick="delTemplate(${i})" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 10px;font-size:10px;margin:0;">✖</button>
@@ -325,7 +332,6 @@ function syncTemplatesWithCycle(calc) {
     let u=false;
     fixedTemplates.forEach(t => {
         const tgt = getCycleDateForDay(t.day, calc.startStr, calc.endStr);
-        // 【修正】status!=='skipped' の条件を削除。スキップ済みレコードが存在する場合は再生成しないように修正
         if(!data.find(d => d.templateId===t.id && d.status!=='deleted' && d.date>=calc.startStr && d.date<calc.nextPayStr)){
             data.push({ id:Date.now()+Math.random(), templateId:t.id, date:tgt, time:t.time, timestamp:parseDate(tgt).getTime(), amount:t.amount, type:t.type, category:t.category, memo:t.memo, actionLogText:"", status:'pending' }); u=true;
         }
