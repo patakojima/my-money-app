@@ -158,7 +158,6 @@ function updateMainView() {
         }
     }
 
-    // ★ ver.2.2 チケットのカラータイマー動的インジケーター連動
     const tInd = document.getElementById('ticket-indicator');
     if(tInd) {
         tInd.innerHTML = '';
@@ -319,19 +318,14 @@ function calculateCurrentBudget() {
     const c = getCycle(t); 
 
     let appBal = data.filter(d => d.status === 'confirmed').reduce((sum, d) => sum + (d.type === 'income' ? d.amount : -d.amount), 0);
-    
-    // ★金庫室（実残高ベース）に切り替え
     let vTotal = calcVaultTotal(); 
-    
     let pendingExpenses = data.filter(d => d.status === 'pending' && d.type === 'expense' && d.date >= c.startStr && d.date < c.nextPayStr).reduce((s, d) => s + d.amount, 0);
     let lockTickets = (v2_status.ticketRemaining || 0) * (v2_status.ticketBaseAmount || 0);
     
-    // ★マイナス時のガード処理（0を下回らないようにする）
     let lockFood = Math.max(0, v2_status.foodDeposit || 0); 
     let lockDrinkPool = Math.max(0, v2_status.drinkDeposit || 0); 
     let lockDrinkTotal = lockDrinkPool + lockTickets;
     
-    // ★計算の基準を実残高の合計値（vTotal）に変更
     let freeBalance = vTotal - pendingExpenses - lockFood - lockDrinkTotal; 
 
     let cycleEndObj = parseDate(c.endStr);
@@ -367,7 +361,6 @@ function calculateCurrentBudget() {
     if (wRem > freeBalance) wRem = freeBalance;
     bFW = weekFreeSp + (wRem > 0 ? wRem : 0);
     
-    // 進捗バー用の最大値計算（マイナスガード付きのプールを足す）
     let coreMax = vTotal + monthFreeSp; 
 
     return { 
@@ -444,7 +437,6 @@ function render() {
     });
     const totalEl = document.getElementById("total"); if(totalEl) totalEl.innerText=c.freeBalance.toLocaleString()+"円";
     
-    // ★ ver.2.2 MAIN画面：作戦行動費の日本語化＆1000円生存限界値タイマーカラーロジック
     const tbEl = document.getElementById("todayBudget");
     if(tbEl) {
         tbEl.innerHTML = `<span style="font-size:12px; font-weight:normal; color:#8e8e93; display:block;">作戦猶予：残り ${c.remainDays} 日 ／ 当日予算：</span>${c.todayBudget > 0 ? c.todayBudget.toLocaleString() : 0}円`;
@@ -672,7 +664,6 @@ function updateTDisplay() {
         l.innerHTML+=`<div class="action-log-item"><div><span style="color:#aaa;margin-right:8px;">${a.time}</span><b>${a.label}</b></div><div style="display:flex;align-items:center;gap:6px;">${a.cost>0?'+'+a.cost:''}<button class="main-btn" onclick="editActionById(${a.id})" style="background:#007aff;color:white;border:none;border-radius:4px;padding:4px;font-size:10px;margin:0;">✎</button><button class="action-log-del" onclick="removeActionById(${a.id})">✖</button></div></div>`;
     } 
     saveTerminalDraft();
-    // --- ★ ver.2.2 追加：ステルスバーの杯数連動アニメーションパルス ---
     const statusBar = document.getElementById('stealth-status-bar');
     if (statusBar) {
         statusBar.classList.remove('status-safe', 'status-warning', 'status-critical');
@@ -721,24 +712,71 @@ function finishProject() {
     switchPage('main', document.querySelector('.tab-item'));
 }
 
-function downloadCSV() {
-    if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
-    let csvContent = "\uFEFF日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
-    const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
-    sortedData.forEach(d => {
-        let type = d.type === 'income' ? '収入' : '支出';
-        let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
-        let cat = `"${(d.category || "").replace(/"/g, '""')}"`; let memo = `"${(d.memo || "").replace(/"/g, '""')}"`; let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
-        csvContent += `${d.date||""},${d.time||""},${type},${d.amount},${cat},${memo},${stat},${log}\n`;
-    });
+// ==========================================
+// ★ 統合型 CSVエクスポート（出力）ロジック
+// ==========================================
+function exportCSV(type) {
+    let csvContent = "";
+    let fileName = "";
+    const bom = "\uFEFF"; // Excel用BOM
+
+    if (type === 'log') {
+        if (!data || data.length === 0) { alert("出力するデータがありません。"); return; }
+        csvContent = bom + "日付,時間,収支,金額,カテゴリ,メモ,ステータス,詳細ログ\n";
+        const sortedData = [...data].sort((a,b) => ((b.date||"") + " " + (b.time||"")).localeCompare((a.date||"") + " " + (a.time||"")));
+        sortedData.forEach(d => {
+            let t = d.type === 'income' ? '収入' : '支出';
+            let stat = d.status === 'deleted' ? '削除' : (d.status === 'skipped' ? 'スキップ' : (d.status === 'pending' ? '予定' : '確定'));
+            let cat = `"${(d.category || "").replace(/"/g, '""')}"`;
+            let memo = `"${(d.memo || "").replace(/"/g, '""')}"`;
+            let log = `"${(d.actionLogText || "").replace(/"/g, '""').replace(/\n/g, ' / ')}"`;
+            csvContent += `${d.date||""},${d.time||""},${t},${d.amount},${cat},${memo},${stat},${log}\n`;
+        });
+        fileName = `ACTIVITY_LOG_${formatStr(new Date()).replace(/-/g, '')}.csv`;
+    } 
+    else if (type === 'fixed') {
+        if (!fixedTemplates || fixedTemplates.length === 0) { alert("出力するデータがありません。"); return; }
+        csvContent = bom + "日,時間,収支,金額,カテゴリ,メモ\n";
+        const sortedData = [...fixedTemplates].sort((a,b) => a.day - b.day);
+        sortedData.forEach(t => {
+            let ty = t.type === 'income' ? '収入' : '支出';
+            let cat = `"${(t.category || "").replace(/"/g, '""')}"`; 
+            let memo = `"${(t.memo || "").replace(/"/g, '""')}"`; 
+            csvContent += `${t.day},${t.time||""},${ty},${t.amount},${cat},${memo}\n`;
+        });
+        fileName = `FIXED_COST_${formatStr(new Date()).replace(/-/g, '')}.csv`;
+    } 
+    else if (type === 'vault') {
+        if (!vault_accounts || vault_accounts.length === 0) { alert("出力するデータがありません。"); return; }
+        csvContent = bom + "ID,口座名,残高\n";
+        vault_accounts.forEach(v => {
+            let n = `"${(v.name || "").replace(/"/g, '""')}"`;
+            csvContent += `${v.id},${n},${v.balance}\n`;
+        });
+        fileName = `VAULT_DATA_${formatStr(new Date()).replace(/-/g, '')}.csv`;
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `money_data_${today}.csv`;
-    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
-    const link = document.createElement("a"); const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    if (navigator.share) { 
+        const file = new File([blob], fileName, { type: 'text/csv' }); 
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { 
+            navigator.share({ files: [file] }).catch(err => console.log(err)); return; 
+        } 
+    }
+    const link = document.createElement("a"); 
+    const url = URL.createObjectURL(blob); 
+    link.setAttribute("href", url); 
+    link.setAttribute("download", fileName); 
+    link.style.display = 'none'; 
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
 }
 
-function importCSV(event) {
+// ==========================================
+// ★ 統合型 CSVインポート（読込）ロジック
+// ==========================================
+function importCSV(event, type) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -751,10 +789,11 @@ function importCSV(event) {
             const line = lines[i].trim();
             if (!line) continue;
             
+            // 簡易的なCSVパーサー（カンマ区切りとダブルクォーテーション対応）
             let cols = [];
             let inQuote = false;
             let col = '';
-            for(let j=0; j<line.length; j++){
+            for(let j = 0; j < line.length; j++){
                 let c = line[j];
                 if(c === '"') { inQuote = !inQuote; }
                 else if(c === ',' && !inQuote) { cols.push(col); col = ''; }
@@ -762,7 +801,8 @@ function importCSV(event) {
             }
             cols.push(col);
 
-            if (cols.length >= 7) {
+            // ① 履歴・支出 (ACTIVITY_LOG) の処理
+            if (type === 'log' && cols.length >= 7) {
                 let dateStr = cols[0];
                 let timeStr = cols[1];
                 let typeStr = cols[2];
@@ -771,83 +811,21 @@ function importCSV(event) {
                 let memo = cols[5] ? cols[5].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
                 let statStr = cols[6];
                 let logText = cols[7] ? cols[7].replace(/^"|"$/g, '').replace(/""/g, '"').replace(/ \/ /g, '\n') : '';
-                let type = typeStr === '収入' ? 'income' : 'expense';
+                
+                let t = typeStr === '収入' ? 'income' : 'expense';
                 let status = 'confirmed';
                 if (statStr === '削除') status = 'deleted';
                 if (statStr === 'スキップ') status = 'skipped';
                 if (statStr === '予定') status = 'pending';
 
                 const isDuplicate = data.some(d => d.date === dateStr && d.time === timeStr && d.amount === amount && d.category === cat);
-                if (!isDuplicate) {
-                    data.push({
-                        id: Date.now() + importedCount,
-                        date: dateStr,
-                        time: timeStr,
-                        timestamp: parseDate(dateStr).getTime(),
-                        amount: amount,
-                        type: type,
-                        category: cat,
-                        memo: memo,
-                        actionLogText: logText,
-                        status: status
-                    });
+                if (!isDuplicate && !isNaN(amount)) {
+                    data.push({ id: Date.now() + importedCount, date: dateStr, time: timeStr, timestamp: parseDate(dateStr).getTime(), amount: amount, type: t, category: cat, memo: memo, actionLogText: logText, status: status });
                     importedCount++;
                 }
-            }
-        }
-        save();
-        render();
-        alert(`📥 ${importedCount}件のデータを復元（インポート）しました！\nお店データなどは手動で再設定してください。`);
-        event.target.value = ''; 
-    };
-    reader.readAsText(file);
-}
-
-// FIXED用CSV出力機能
-function downloadFixedCSV() {
-    if (!fixedTemplates || fixedTemplates.length === 0) { alert("出力するデータがありません。"); return; }
-    let csvContent = "\uFEFF日,時間,収支,金額,カテゴリ,メモ\n";
-    const sortedData = [...fixedTemplates].sort((a,b) => a.day - b.day);
-    sortedData.forEach(t => {
-        let type = t.type === 'income' ? '収入' : '支出';
-        let cat = `"${(t.category || "").replace(/"/g, '""')}"`; 
-        let memo = `"${(t.memo || "").replace(/"/g, '""')}"`; 
-        csvContent += `${t.day},${t.time||""},${type},${t.amount},${cat},${memo}\n`;
-    });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const today = formatStr(new Date()).replace(/-/g, ''); const fileName = `fixed_data_${today}.csv`;
-    if (navigator.share) { const file = new File([blob], fileName, { type: 'text/csv' });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { navigator.share({ files: [file] }).catch(err => console.log(err)); return; } }
-    const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", fileName); link.style.display = 'none';
-    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
-
-// FIXED用CSV読込（インポート）機能
-function importFixedCSV(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const text = e.target.result;
-        const lines = text.split('\n');
-        let importedCount = 0;
-        
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-            
-            let cols = [];
-            let inQuote = false;
-            let col = '';
-            for(let j=0; j<line.length; j++){
-                let c = line[j];
-                if(c === '"') { inQuote = !inQuote; }
-                else if(c === ',' && !inQuote) { cols.push(col); col = ''; }
-                else { col += c; }
-            }
-            cols.push(col);
-
-            if (cols.length >= 6) {
+            } 
+            // ② 固定費テンプレート (FIXED_COST) の処理
+            else if (type === 'fixed' && cols.length >= 6) {
                 let day = Number(cols[0]);
                 if (isNaN(day) || day < 1 || day > 31) continue;
                 let timeStr = cols[1] || "10:00";
@@ -856,34 +834,44 @@ function importFixedCSV(event) {
                 if (isNaN(amount) || amount <= 0) continue;
                 let cat = cols[4] ? cols[4].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
                 let memo = cols[5] ? cols[5].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+                
+                let t = typeStr === '収入' ? 'income' : 'expense';
 
-                let type = typeStr === '収入' ? 'income' : 'expense';
-
-                const isDuplicate = fixedTemplates.some(t => t.day === day && t.amount === amount && t.category === cat);
+                const isDuplicate = fixedTemplates.some(tmpl => tmpl.day === day && tmpl.amount === amount && tmpl.category === cat);
                 if (!isDuplicate) {
-                    fixedTemplates.push({
-                        id: Date.now() + importedCount,
-                        day: day,
-                        time: timeStr,
-                        type: type,
-                        amount: amount,
-                        category: cat,
-                        memo: memo
-                    });
+                    fixedTemplates.push({ id: Date.now() + importedCount, day: day, time: timeStr, type: t, amount: amount, category: cat, memo: memo });
                     importedCount++;
                 }
+            } 
+            // ③ 金庫・口座残高 (VAULT_DATA) の処理
+            else if (type === 'vault' && cols.length >= 3) {
+                let id = cols[0];
+                let name = cols[1] ? cols[1].replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+                let balance = Number(cols[2]);
+                if (isNaN(balance)) continue;
+                
+                const existing = vault_accounts.find(v => v.id === id);
+                if (existing) {
+                    existing.name = name;
+                    existing.balance = balance;
+                } else {
+                    vault_accounts.push({ id: id, name: name, balance: balance });
+                }
+                importedCount++;
             }
         }
-        localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates));
-        renderTemplates();
-        render();
-        alert(`📥 ${importedCount}件の毎月の予定（FIXED）データを追加しました！`);
+        
+        // 読込完了後の保存と画面更新
+        if (type === 'log') { save(); render(); alert(`📥 ${importedCount}件の「履歴・支出」データをインポートしました！`); }
+        if (type === 'fixed') { localStorage.setItem("fixedTemplates", JSON.stringify(fixedTemplates)); renderTemplates(); render(); alert(`📥 ${importedCount}件の「固定費」データをインポートしました！`); }
+        if (type === 'vault') { saveVault(); renderVault(); render(); alert(`📥 ${importedCount}件の「口座残高」データをインポートしました！`); }
+        
         event.target.value = ''; 
     };
     reader.readAsText(file);
 }
 
-// ★ ver.2.2 追加: 実行環境の自動判定 (PWA or Safari)
+// 実行環境の自動判定 (PWA or Safari)
 function checkEnvironment() {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
     const envText = isStandalone ? "App Mode (PWA設定状態)" : "Safari Browser (通常ブラウザ状態)";
@@ -891,7 +879,7 @@ function checkEnvironment() {
     if(envEl) envEl.innerText = `現在の検出環境: [ ${envText} ]`;
 }
 
-// ★ ver.2.2 追加: 全LocalStorageデータの救済コピー
+// 全LocalStorageデータの救済コピー
 function exportData() {
     let allData = JSON.stringify(localStorage);
     navigator.clipboard.writeText(allData).then(() => {
@@ -900,5 +888,4 @@ function exportData() {
         prompt("以下のテキストを全選択して手動でコピーし、退避させてください:", allData);
     });
 }
-
 
