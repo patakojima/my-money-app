@@ -325,7 +325,8 @@ function syncTemplatesWithCycle(calc) {
     let u=false;
     fixedTemplates.forEach(t => {
         const tgt = getCycleDateForDay(t.day, calc.startStr, calc.endStr);
-        if(!data.find(d => d.templateId===t.id && d.status!=='deleted' && d.status!=='skipped' && d.date>=calc.startStr && d.date<calc.nextPayStr)){
+        // 【修正】status!=='skipped' の条件を削除。スキップ済みレコードが存在する場合は再生成しないように修正
+        if(!data.find(d => d.templateId===t.id && d.status!=='deleted' && d.date>=calc.startStr && d.date<calc.nextPayStr)){
             data.push({ id:Date.now()+Math.random(), templateId:t.id, date:tgt, time:t.time, timestamp:parseDate(tgt).getTime(), amount:t.amount, type:t.type, category:t.category, memo:t.memo, actionLogText:"", status:'pending' }); u=true;
         }
     });
