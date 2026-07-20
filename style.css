@@ -14,7 +14,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: v
 .card { background: white; padding: 15px; border-radius: 14px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.05); }
 
 input, select, .main-btn, textarea { width: 100%; padding: 12px; margin: 8px 0; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; -webkit-appearance: none; }
-.main-btn { background: var(--primary); color: white; border: none; font-weight: bold; margin-top: 10px; }
+.main-btn { background: var(--primary); color: white; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
 .main-btn:active { opacity: 0.7; }
 
 h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 800; }
@@ -30,14 +30,14 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .badge-pending { background: #FF9500; color: white; font-size: 9px; padding: 2px 5px; border-radius: 4px; margin-right: 6px; font-weight: bold; letter-spacing: 0.5px; }
 
 .task-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 18px; }
-.task-btn { border: 2px solid #efeff4; background: #fbfbfd; padding: 16px 0; border-radius: 12px; color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.task-btn { border: 2px solid #efeff4; background: #fbfbfd; padding: 16px 0; border-radius: 12px; color: #8e8e93; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
 .task-btn b { font-size: 16px; margin-bottom: 4px; }
 .task-btn span { font-size: 9px; font-weight: 300; font-family: monospace; letter-spacing: 0.5px; }
 .task-btn:active { opacity: 0.6; transform: scale(0.96); }
 .task-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
 
 .num-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; }
+.num-btn { background: #f2f2f7; border: none; padding: 16px; border-radius: 12px; font-size: 18px; font-weight: 700; color: #1c1c1e; transition: 0.1s; cursor: pointer; }
 .num-btn:active { transform: scale(0.92); background: #e5e5ea; }
 
 .metric-header { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 4px; }
@@ -48,7 +48,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 .progress-bar { height: 100%; width: 100%; background: #34C759; transition: width 0.3s ease; }
 
 .extra-toggle { display: flex; gap: 10px; margin-bottom: 10px; }
-.ext-btn { flex: 1; border: 2px solid #efeff4; background: #fbfbfd; padding: 12px; border-radius: 10px; font-size: 18px; font-weight: 800; color: #8e8e93; text-align: center; }
+.ext-btn { flex: 1; border: 2px solid #efeff4; background: #fbfbfd; padding: 12px; border-radius: 10px; font-size: 18px; font-weight: 800; color: #8e8e93; text-align: center; cursor: pointer; }
 .ext-btn.active-d { border-color: var(--drink); color: var(--drink); background: #FFF9F2; }
 .ext-btn.active-f { border-color: var(--food); color: var(--food); background: #F2FFF5; }
 
@@ -63,14 +63,16 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
 .action-log-list { margin-top: 10px; border-top: 1px solid #eee; }
 .action-log-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 12px; }
-.action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; }
+.action-log-del { background: #ff3b30; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer; }
 
-/* VAULTåºæãã¶ã¤ã³ */
+/* ==========================================
+   VAULT固有デザイン
+========================================== */
 .vault-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
 .vault-input { width: 120px !important; text-align: right; margin: 0 !important; padding: 8px !important; }
 
 /* ==========================================
-   â ver.2.2 è¿½å : ã¢ã©ã¼ãï¼ã¹ãã«ã¹ãã¼
+   ver.2.2 追加: アラート＆ステルスバー
 ========================================== */
 .stealth-status-bar { font-family: monospace; font-size: 11px; font-weight: bold; text-align: right; padding: 6px 12px; margin-bottom: 15px; border-radius: 6px; background: #1c1c1e; color: #34C759; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
 .status-safe { animation: fadePulse 3s infinite; }
@@ -83,12 +85,22 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 
 .text-critical { color: #FF3B30 !important; }
 
-/* ãã±ããã»ã¤ã³ã¸ã±ã¼ã¿ã¼ç¨ã«ã©ã¼ã¿ã¤ãã¼è¨­å® */
+/* チケット・インジケーター用カラータイマー設定 */
 .ticket-indicator-container { display: flex; gap: 4px; margin-top: 8px; }
 .ticket-color-safe { background: #34C759 !important; }
 .ticket-color-warn { background: #FFCC00 !important; }
 .ticket-color-critical { background: #FF3B30 !important; }
 
-/* ç°å¢ã¤ã³ã¸ã±ã¼ã¿ã¼ç¨ */
+/* 環境インジケーター用 */
 .env-text { font-size: 10px; color: #8e8e93; text-align: center; margin-top: 15px; font-family: monospace; }
+
+/* ==========================================
+   システム防衛用 CSVボタン群スタイル
+========================================== */
+.csv-group { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #c7c7cc; }
+.csv-group:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.btn-row { display: flex; gap: 10px; }
+.export-btn, .import-btn { flex: 1; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; text-align: center; border: none; cursor: pointer; }
+.export-btn { background: #e5e5ea; color: #1c1c1e; }
+.import-btn { background: var(--primary); color: white; display: inline-block; margin: 0; line-height: 1.2; }
 
