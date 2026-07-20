@@ -72,12 +72,7 @@ h2 { text-align: center; margin: 10px 0 20px; font-size: 1.1rem; font-weight: 80
 /* ==========================================
    ★ ver.2.2 追加: アラート＆ステルスバー
 ========================================== */
-.stealth-status-bar {
-    font-family: monospace; font-size: 11px; font-weight: bold; text-align: right;
-    padding: 6px 12px; margin-bottom: 15px; border-radius: 6px; 
-    background: #1c1c1e; color: #34C759;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
-}
+.stealth-status-bar { font-family: monospace; font-size: 11px; font-weight: bold; text-align: right; padding: 6px 12px; margin-bottom: 15px; border-radius: 6px; background: #1c1c1e; color: #34C759; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
 .status-safe { animation: fadePulse 3s infinite; }
 .status-warning { color: #FFCC00 !important; animation: glitchPulse 1s infinite; }
 .status-critical { color: #FF3B30 !important; animation: redAlert 0.2s infinite; }
