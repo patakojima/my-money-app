@@ -268,7 +268,26 @@ function renderTemplates() {
         </div>
     `).join('');
 }
-function editTemplateUI(id) { const t = fixedTemplates.find(x=>x.id==id); if(!t) return; document.getElementById('edit-tpl-id').value=t.id; document.getElementById('tpl-day').value=t.day; document.getElementById('tpl-time').value=t.time||"10:00"; document.getElementById('tpl-type').value=t.type; document.getElementById('tpl-amount').value=t.amount; document.getElementById('tpl-category').value=t.category; document.getElementById('tpl-memo').value=t.memo||""; document.getElementById('tpl-save-btn').innerText="保存"; document.getElementById('tpl-cancel-btn').style.display="block"; const target=document.getElementById('page-fixed'); if(target) target.scrollTo({top:0,behavior:'smooth'}); }
+
+// FIXED: テンプレート編集時に入力コンテナへジャンプ
+function editTemplateUI(id) { 
+    const t = fixedTemplates.find(x=>x.id==id); 
+    if(!t) return; 
+    document.getElementById('edit-tpl-id').value=t.id; 
+    document.getElementById('tpl-day').value=t.day; 
+    document.getElementById('tpl-time').value=t.time||"10:00"; 
+    document.getElementById('tpl-type').value=t.type; 
+    document.getElementById('tpl-amount').value=t.amount; 
+    document.getElementById('tpl-category').value=t.category; 
+    document.getElementById('tpl-memo').value=t.memo||""; 
+    document.getElementById('tpl-save-btn').innerText="保存"; 
+    document.getElementById('tpl-cancel-btn').style.display="block"; 
+    
+    // スクロールコンテナ(.content)を最上部にスムーズスクロール
+    const contentEl = document.querySelector('.content'); 
+    if(contentEl) contentEl.scrollTo({top:0, behavior:'smooth'}); 
+}
+
 function cancelEditTemplate() { document.getElementById('edit-tpl-id').value=""; document.getElementById('tpl-day').value=""; document.getElementById('tpl-amount').value=""; document.getElementById('tpl-category').value=""; document.getElementById('tpl-memo').value=""; document.getElementById('tpl-save-btn').innerText="追加"; document.getElementById('tpl-cancel-btn').style.display="none"; }
 function saveTemplate() { const id=document.getElementById('edit-tpl-id').value, day=Number(document.getElementById('tpl-day').value), time=document.getElementById('tpl-time').value||"00:00", type=document.getElementById('tpl-type').value, amount=Number(document.getElementById('tpl-amount').value), category=document.getElementById('tpl-category').value, memo=document.getElementById('tpl-memo').value; if(!day||day<1||day>31||!amount||!category){alert("入力漏れがあります");return;} if(id){ fixedTemplates[fixedTemplates.findIndex(t=>t.id==id)]={id:Number(id),day,time,type,amount,category,memo}; } else { fixedTemplates.push({id:Date.now(),day,time,type,amount,category,memo}); } localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); cancelEditTemplate(); renderTemplates(); render(); }
 function delTemplate(i) { if(!confirm("削除しますか？"))return; fixedTemplates.splice(i,1); localStorage.setItem("fixedTemplates",JSON.stringify(fixedTemplates)); renderTemplates(); }
@@ -306,7 +325,7 @@ function syncTemplatesWithCycle(calc) {
     let u=false;
     fixedTemplates.forEach(t => {
         const tgt = getCycleDateForDay(t.day, calc.startStr, calc.endStr);
-        if(!data.find(d => d.templateId===t.id && d.status!=='deleted' && d.date>=calc.startStr && d.date<calc.nextPayStr)){
+        if(!data.find(d => d.templateId===t.id && d.status!=='deleted' && d.status!=='skipped' && d.date>=calc.startStr && d.date<calc.nextPayStr)){
             data.push({ id:Date.now()+Math.random(), templateId:t.id, date:tgt, time:t.time, timestamp:parseDate(tgt).getTime(), amount:t.amount, type:t.type, category:t.category, memo:t.memo, actionLogText:"", status:'pending' }); u=true;
         }
     });
@@ -641,9 +660,23 @@ function deleteRecord(id) {
 }
 
 // ==========================================
-// STORE (TERMINAL UI に合わせて英語表記に変更)
+// STORE (TERMINAL UI に合わせて仕様変更)
 // ==========================================
-function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="SAVE"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
+function editStoreUI(id) { 
+    const s=stores.find(x=>x.id==id); 
+    if(!s)return; 
+    document.getElementById('edit-store-id').value=s.id; 
+    document.getElementById('store-name').value=s.name; 
+    document.getElementById('price-a').value=s.a; 
+    document.getElementById('price-b').value=s.b; 
+    document.getElementById('store-save-btn').innerText="SAVE"; 
+    document.getElementById('store-cancel-btn').style.display="block"; 
+    
+    // スクロールコンテナ(.content)を最上部にスムーズスクロール
+    const contentEl = document.querySelector('.content'); 
+    if(contentEl) contentEl.scrollTo({top:0, behavior:'smooth'}); 
+}
+
 function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="ADD_NEW"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
 function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); if(!sel)return; const p=sel.value; sel.innerHTML='<option value="">-- SELECT_STORE --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
