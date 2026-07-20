@@ -61,7 +61,7 @@ function switchPage(pageId, el) {
         
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active')); 
         if(el) el.classList.add('active');
-        let titles = {'main':'メインダッシュボード', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
+        let titles = {'main':'MAIN_DASHBOARD', 'terminal':'TERMINAL_OP_V2.0', 'fixed':'司令部 (FIXD)', 'vault':'金庫室 (VAULT)'};
         const titleEl = document.getElementById('display-title');
         if(titleEl) titleEl.innerText = titles[pageId] || '';
         if(pageId === 'terminal') { 
@@ -457,17 +457,6 @@ function updateMainProgressBar() {
     let c = calculateCurrentBudget();
     let termEl = document.getElementById('page-terminal');
     let isTerm = termEl ? termEl.classList.contains('active') : false;
-    
-    let fMax = v2_status.foodDepositMax || c.lockFood || 1;
-    let fP = (c.lockFood / fMax) * 100;
-    if(fP > 100) fP = 100; if(fP < 0) fP = 0;
-    const foodBar = document.getElementById('food-bar');
-    if(foodBar) {
-        foodBar.style.width = fP + '%';
-        foodBar.style.background = fP > 50 ? '#34C759' : (fP > 20 ? '#FFCC00' : '#FF3B30');
-        document.getElementById('food-rem-val').innerText = '¥' + c.lockFood.toLocaleString();
-        document.getElementById('food-budget-val').innerText = '/ ¥' + fMax.toLocaleString();
-    }
 
     if (!isTerm) {
         const uMain = (bId, vId, aId, maxVal, remainVal) => { 
@@ -493,6 +482,28 @@ function updateMainProgressBar() {
         uMain('main-bar-day','main-val-day','main-amt-day', c.budgetForToday, c.todayBudget); 
         uMain('main-bar-week','main-val-week','main-amt-week', c.budgetForWeek, c.weekRemaining); 
         uMain('main-bar-core','main-val-core','main-amt-core', c.coreMax, c.freeBalance);
+        
+        // MAIN画面用のPOOL残高メーター
+        const uMainPool = (bId, vId, aId, maxVal, remainVal) => {
+            let b=document.getElementById(bId), v=document.getElementById(vId), a=document.getElementById(aId);
+            if(!b || !v || !a) return;
+            if (maxVal <= 0) {
+                b.style.width='0%'; b.style.background='#e5e5ea'; v.innerText='0%'; v.style.color='#8e8e93';
+                a.innerText = `残高 0円 / 最大 0円`; a.style.color='#8e8e93';
+            } else if (remainVal < 0) {
+                b.style.width='0%'; b.style.background='#ff3b30'; v.innerText='0%'; v.style.color='#ff3b30';
+                a.innerText = `残高 ${remainVal.toLocaleString()}円 (赤字)`; a.style.color='#ff3b30';
+            } else {
+                let p = (remainVal / maxVal) * 100;
+                if(p > 100) p = 100;
+                b.style.width = p + '%'; v.innerText = Math.floor(p) + '%'; v.style.color='#1c1c1e';
+                b.style.background = p > 50 ? '#34C759' : (p > 20 ? '#FFCC00' : '#FF3B30'); 
+                a.innerText = `残高 ${remainVal.toLocaleString()}円 / 最大 ${maxVal.toLocaleString()}円`; a.style.color='#1c1c1e';
+            }
+        };
+        uMainPool('main-bar-drink', 'main-val-drink', 'main-amt-drink', v2_status.drinkDepositMax || v2_status.drinkDeposit || 10000, v2_status.drinkDeposit || 0);
+        uMainPool('main-bar-food', 'main-val-food', 'main-amt-food', v2_status.foodDepositMax || v2_status.foodDeposit || 30000, v2_status.foodDeposit || 0);
+        
     } else {
         let tMax = v2_status.ticketMax || 5;
         let tRem = v2_status.ticketRemaining || 0;
@@ -629,11 +640,14 @@ function deleteRecord(id) {
     save(); render(); document.getElementById('detail-modal').style.display='none';
 }
 
-function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="保存"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
-function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="新規追加"; document.getElementById('store-cancel-btn').style.display="none"; }
+// ==========================================
+// STORE (TERMINAL UI に合わせて英語表記に変更)
+// ==========================================
+function editStoreUI(id) { const s=stores.find(x=>x.id==id); if(!s)return; document.getElementById('edit-store-id').value=s.id; document.getElementById('store-name').value=s.name; document.getElementById('price-a').value=s.a; document.getElementById('price-b').value=s.b; document.getElementById('store-save-btn').innerText="SAVE"; document.getElementById('store-cancel-btn').style.display="block"; window.scrollTo({top:0,behavior:'smooth'}); }
+function cancelEditStore() { document.getElementById('edit-store-id').value=""; document.getElementById('store-name').value=""; document.getElementById('price-a').value=""; document.getElementById('price-b').value=""; document.getElementById('store-save-btn').innerText="ADD_NEW"; document.getElementById('store-cancel-btn').style.display="none"; }
 function saveStore() { const id=document.getElementById('edit-store-id').value, name=document.getElementById('store-name').value, a=Number(document.getElementById('price-a').value), b=Number(document.getElementById('price-b').value); if(!name)return; if(id){stores[stores.findIndex(s=>s.id==id)]={id:Number(id),name,a,b};}else{stores.push({id:Date.now(),name,a,b});} localStorage.setItem("storePresets",JSON.stringify(stores)); updateStoreUI(); updateStoreSelect(); cancelEditStore(); }
-function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); if(!sel)return; const p=sel.value; sel.innerHTML='<option value="">-- 店舗 --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
-function updateStoreUI() { const sui = document.getElementById('store-list-ui'); if(!sui)return; sui.innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button class="main-btn" onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">編集</button><button class="main-btn" onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">✖</button></div></div>`).join(''); }
+function updateStoreSelect() { const w = isSystemAction; isSystemAction=true; const sel=document.getElementById('active-project-id'); if(!sel)return; const p=sel.value; sel.innerHTML='<option value="">-- SELECT_STORE --</option>'+stores.map(s=>`<option value="${s.id}">${s.name}</option>`).join(''); if(p)sel.value=p; if(!w)setTimeout(()=>isSystemAction=false,50); }
+function updateStoreUI() { const sui = document.getElementById('store-list-ui'); if(!sui)return; sui.innerHTML=stores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee;"><div><b style="font-size:15px;">${s.name}</b> <small style="color:#8e8e93; margin-left:4px;">(D1:${s.a} D2:${s.b})</small></div><div style="display:flex; gap:6px;"><button class="main-btn" onclick="editStoreUI(${s.id})" style="background:#007aff;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">EDIT</button><button class="main-btn" onclick="if(confirm('削除しますか？')){stores=stores.filter(x=>x.id!=${s.id});localStorage.setItem('storePresets',JSON.stringify(stores));updateStoreUI();updateStoreSelect();}" style="background:#ff3b30;color:white;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:bold;margin:0;">DEL</button></div></div>`).join(''); }
 
 function handleProjectSelection() { if(isSystemAction)return; activeStore=stores.find(s=>s.id==document.getElementById('active-project-id').value); if(activeStore){ document.getElementById('active-terminal-area').style.display='block'; document.getElementById('label-price-a').innerText=activeStore.a; document.getElementById('label-price-b').innerText=activeStore.b; mDCount=0;mFCount=0;mTotal=0;actionLog=[]; updateTDisplay(); document.getElementById('btn-task-f').classList.add('active-f'); }else{ document.getElementById('active-terminal-area').style.display='none'; localStorage.removeItem("terminalDraft"); activeStore=null;mDCount=0;mFCount=0;mTotal=0;actionLog=[]; } }
 function saveTerminalDraft() { if(activeStore)localStorage.setItem("terminalDraft",JSON.stringify({activeStore,mDCount,mFCount,mTotal,actionLog,currentExtraMode})); }
