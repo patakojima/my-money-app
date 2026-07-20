@@ -118,6 +118,11 @@
                 <div class="term-status">STATUS: <span id="term-status-indicator" class="green-text">ONLINE</span></div>
             </div>
             
+            <!-- 店舗プリセット (JSで生成) -->
+            <div class="terminal-controls" id="preset-controls" style="flex-wrap: wrap; margin-bottom: 10px;">
+                <!-- Populated via JS -->
+            </div>
+
             <div class="terminal-controls">
                 <button class="term-btn type-btn" onclick="ProApp.stealthInputType('D')">CMD: D</button>
                 <button class="term-btn type-btn" onclick="ProApp.stealthInputType('F')">CMD: F</button>
@@ -216,10 +221,20 @@
             </div>
         </div>
 
-        <!-- 共通モーダル: ACTIVITY LOG (編集・削除) -->
+        <!-- 共通モーダル: ACTIVITY LOG (編集・削除・フィルター) -->
         <div id="modal-activity" class="modal">
             <div class="modal-content stealth-mode" style="border: 1px solid #0f0;">
-                <h3 style="color:#0f0;">ACTIVITY_LOG // EDIT</h3>
+                <h3 style="color:#0f0; margin-bottom: 10px;">ACTIVITY_LOG // MANAGE</h3>
+                
+                <!-- 期間指定フィルター -->
+                <div style="margin-bottom: 10px;">
+                    <select id="log-period-filter" onchange="ProApp.showActivityLog()" class="term-btn" style="width:100%; padding: 8px; font-size:12px; border-color:#0f0; background:#000; color:#0f0;">
+                        <option value="all">FILTER: ALL_DATA</option>
+                        <option value="today">FILTER: TODAY</option>
+                        <option value="week">FILTER: THIS_WEEK</option>
+                    </select>
+                </div>
+
                 <ul id="activity-log-list" class="term-log-list">
                     <!-- Populated via JS -->
                 </ul>
