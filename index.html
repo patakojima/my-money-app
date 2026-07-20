@@ -1,265 +1,218 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Integrated Ops Terminal v7.7</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Budget Defense & Vault</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
 
-<div class="header">
-    <div class="sys-title" id="display-title">MAIN_DASHBOARD</div>
-    <div style="font-size: 9px; font-weight: 600; color: #8e8e93;" id="stealth-trigger-area"><span class="status-dot"></span>LIVE_LINK</div>
-</div>
+  <!-- ==========================================
+       【MAIN】大本営（ダッシュボード）
+  =========================================== -->
+  <section id="tab-main" class="tab-content active">
+    <header class="main-header">
+      <h1>大本営 / 作戦状況</h1>
+      <div class="salary-countdown">
+        <span>給料日まで残り: </span><strong id="days-left">--</strong><span> 日</span>
+      </div>
+    </header>
+    
+    <div class="dashboard-cards">
+      <div class="card highlight-card">
+        <h2>本日までの作戦行動費（当日予算）</h2>
+        <div id="daily-budget" class="amount-large">¥0</div>
+        <p class="sub-text">※1,000円未満でレッドゾーン</p>
+      </div>
 
-<div id="stealth-display" style="display:none; background:#1c1c1e; color:#34C759; font-family:monospace; font-size:11px; padding:12px; margin:0 16px 10px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
-    ⚡️ SYS_DEPOSIT_STATUS:<br>
-    ・日常食費POOL: ¥<span id="st-food">0</span><br>
-    ・外食・飲POOL: ¥<span id="st-drink">0</span>
-</div>
+      <div class="card budget-card long-press-target">
+        <h2>食費防衛ライン</h2>
+        <div class="progress-container"><div id="food-bar" class="progress-bar"></div></div>
+        <div class="budget-stats" id="food-stats">¥0 / ¥0</div>
+      </div>
 
-<div class="content">
-  <div id="page-main" class="page active">
-    <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
-      <span id="cycle-title">現在の実績</span>
-      <button onclick="showCycleEditModal()" style="background:#f2f2f7; border:none; border-radius:6px; padding:6px 10px; font-size:12px; font-weight:bold; color:#007aff; box-shadow:0 1px 2px rgba(0,0,0,0.05);">✏️ 期間の変更</button>
-    </h2>
+      <div class="card budget-card long-press-target">
+        <h2>外食・飲み（交際費）</h2>
+        <div class="progress-container"><div id="drink-bar" class="progress-bar drink-color"></div></div>
+        <div class="budget-stats" id="drink-stats">¥0 / ¥0</div>
+        <div class="ticket-status" id="ticket-status">🎫 チケット残り: --回</div>
+      </div>
 
-    <div id="sync-warning" class="card" style="display:none; background:#FFF2F2; border:1px solid #FFD1D1; padding:12px; border-radius:12px; margin-bottom:15px; text-align:center;">
-        <span id="sync-diff-text" style="color:#FF3B30; font-size:13px; font-weight:bold;">⚠️ 現実とのズレを検知</span>
-        <button class="main-btn" style="background:#FF3B30; font-size:12px; padding:6px; margin-top:8px;" onclick="syncRealCash()">キャッシュポジションを完全に同期</button>
+      <div class="card budget-card long-press-target">
+        <h2>その他予備費</h2>
+        <div class="progress-container"><div id="other-bar" class="progress-bar other-color"></div></div>
+        <div class="budget-stats" id="other-stats">¥0 / ¥0</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       【TERMINAL】ステルス（暗号入力）
+  =========================================== -->
+  <section id="tab-terminal" class="tab-content terminal-mode">
+    <header class="term-header">
+      <span>SYS.MONITOR // TERMINAL</span>
+      <span id="term-clock">00:00:00</span>
+    </header>
+
+    <div class="term-display-area">
+      <div id="term-type-indicator">[AWAITING_INPUT...]</div>
+      <div id="term-display">_</div>
+      <input type="text" id="term-memo" placeholder="LOG_MEMO_STRING" autocomplete="off">
+    </div>
+
+    <div class="term-grid">
+      <button class="term-btn type-btn" onclick="setTermType('F')">TYPE:F</button>
+      <button class="term-btn type-btn" onclick="setTermType('D')">TYPE:D</button>
+      <button class="term-btn type-btn" onclick="setTermType('O')">TYPE:O</button>
+
+      <button class="term-btn num" onclick="inputNum(1)">1</button>
+      <button class="term-btn num" onclick="inputNum(2)">2</button>
+      <button class="term-btn num" onclick="inputNum(3)">3</button>
+      <button class="term-btn num" onclick="inputNum(4)">4</button>
+      <button class="term-btn num" onclick="inputNum(5)">5</button>
+      <button class="term-btn num" onclick="inputNum(6)">6</button>
+      <button class="term-btn num" onclick="inputNum(7)">7</button>
+      <button class="term-btn num" onclick="inputNum(8)">8</button>
+      <button class="term-btn num" onclick="inputNum(9)">9</button>
+      <button class="term-btn action-btn" onclick="clearNum()">CLR</button>
+      <button class="term-btn num" onclick="inputNum(0)">0</button>
+      <button class="term-btn action-btn" onclick="undoLastLog()">UNDO</button>
     </div>
     
-    <div class="card total-box">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93;">自由に使える残高 (Balance)</div>
-      <div class="total-amount" id="total">0円</div>
+    <button class="term-submit" onclick="submitLog()">EXECUTE_LOG_ENTRY</button>
+    
+    <div class="term-log-section">
+      <h3>ACTIVITY_LOG <button onclick="showLogModal()">[EXPAND]</button></h3>
+      <ul id="mini-log-list"></ul>
     </div>
-    <div class="card budget-info">
-      <div>今日の予算<span class="budget-val" id="todayBudget">0円</span></div>
-      <div style="border-left:1px solid #eee;"></div>
-      <div>今週の予算<span class="budget-val" id="weekRemaining">0円</span></div>
+  </section>
+
+  <!-- ==========================================
+       【FIXD】司令部（固定費・入出力）
+  =========================================== -->
+  <section id="tab-fixd" class="tab-content">
+    <header class="main-header">
+      <h1>司令部 / 固定費・システム管理</h1>
+    </header>
+
+    <div class="card form-card">
+      <h2>固定費テンプレート登録</h2>
+      <form id="fixed-form" onsubmit="saveFixedCost(event)">
+        <input type="hidden" id="fixed-id">
+        <div class="input-group">
+          <label>引落日（毎月）</label>
+          <input type="number" id="fixed-day" min="1" max="31" required>
+        </div>
+        <div class="input-group">
+          <label>項目名</label>
+          <input type="text" id="fixed-name" required>
+        </div>
+        <div class="input-group">
+          <label>金額</label>
+          <input type="number" id="fixed-amount" required>
+        </div>
+        <button type="submit" class="primary-btn">登録・更新</button>
+      </form>
     </div>
 
-    <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
-        <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">SYS_RESOURCE_METRICS</div>
-        <div>
-            <div class="metric-header" style="margin-top:5px;"><div class="metric-label">[DAY] <span id="main-amt-day" class="metric-amt">0MB</span></div><div id="main-val-day" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-day" class="progress-bar"></div></div>
-        </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[WEEK] <span id="main-amt-week" class="metric-amt">0MB</span></div><div id="main-val-week" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-week" class="progress-bar"></div></div>
-        </div>
-        <div>
-            <div class="metric-header"><div class="metric-label">[CORE] <span id="main-amt-core" class="metric-amt">0MB</span></div><div id="main-val-core" class="metric-val">100%</div></div>
-            <div class="progress-container"><div id="main-bar-core" class="progress-bar"></div></div>
-        </div>
+    <div class="card list-card">
+      <h2>登録済み固定費一覧</h2>
+      <ul id="fixed-list" class="data-list"></ul>
     </div>
 
-    <div class="card">
-        <div style="font-size:11px; font-weight:700; color:#8e8e93;">外食・飲み会チケット (カラータイマー連動)</div>
-        <div id="ticket-indicator" class="ticket-indicator-container"></div>
-    </div>
-
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">手動記録</div>
-      <div style="display:flex; gap:10px;"><input type="date" id="date" style="flex:2;"><input type="time" id="time" style="flex:1;"></div>
-      <input type="number" id="amount" placeholder="金額" inputmode="numeric">
-      <select id="type"><option value="expense">支出</option><option value="income">収入</option></select>
+    <div class="card system-card">
+      <h2>システム・データ防衛（CSV入出力）</h2>
       
-      <div id="expense-source-container" style="margin-top:5px;">
-          <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-left:4px;">支出ソース</div>
-          <select id="expense-source"><option value="free">自由に使える残高 (フリー)</option><option value="food">日常の食費POOL</option><option value="drink">外食・飲み代POOL</option></select>
-      </div>
-
-      <input type="text" id="category" placeholder="カテゴリ"><input type="text" id="memo" placeholder="メモ">
-      
-      <label style="display:flex; align-items:center; gap:8px; margin: 12px 4px 5px; font-size:14px; font-weight:bold; color:#FF9500; cursor:pointer;">
-          <input type="checkbox" id="is-pending" style="-webkit-appearance: checkbox !important; appearance: checkbox !important; width: 22px !important; height: 22px !important; margin: 0 !important; padding: 0 !important; border: none !important; cursor: pointer; flex-shrink: 0; outline: none !important;">
-          <span style="padding-top:2px;">FIXED(固定費)に登録して保留</span>
-      </label>
-
-      <button class="main-btn" onclick="addData()">データを記録</button>
-    </div>
-
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">店舗プリセット</div>
-      <input type="hidden" id="edit-store-id"><input type="text" id="store-name" placeholder="店名">
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[Task A] D1単価</div><input type="number" id="price-a" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-        <div style="flex:1;"><div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-left:4px;">[Task B] D2単価</div><input type="number" id="price-b" placeholder="金額" inputmode="numeric" style="margin-top:0;"></div>
-      </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="store-save-btn" class="main-btn" style="background:#666; margin-top:0;" onclick="saveStore()">新規追加</button>
-          <button id="store-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditStore()">キャンセル</button>
-      </div>
-      <div id="store-list-ui" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
-    </div>
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin: 0 5px;">
-        <div style="font-size:12px; font-weight:bold; color:#666;">入出金履歴</div>
-        <button onclick="downloadCSV()" style="background:#34C759; border:none; border-radius:6px; padding:6px 12px; font-size:10px; font-weight:bold; color:white; box-shadow:0 1px 2px rgba(0,0,0,0.1);">📥 CSV出力</button>
-    </div>
-    
-    <div class="card" id="list" style="margin-top:8px;"></div>
-  </div>
-
-  <div id="page-terminal" class="page">
-    <div id="project-selector-area" class="card">
-        <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">SELECT_ACTIVE_PROJECT</div>
-        <select id="active-project-id"></select>
-    </div>
-    <div id="active-terminal-area" style="display:none;">
-        
-        <div id="stealth-status-bar" class="stealth-status-bar status-safe">[ ONLINE - SESSION SAFE ]</div>
-
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:15px;">
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_D</div><div id="mock-d-count" style="font-size:24px; font-weight:800;">0</div></div>
-            <div class="card"><div style="font-size:9px; color:#8e8e93; font-weight:bold;">UNIT_F</div><div id="mock-f-count" style="font-size:24px; font-weight:800;">0</div></div>
+      <div class="csv-group">
+        <h3>1. ACTIVITY_LOG (履歴・支出)</h3>
+        <div class="btn-row">
+          <button onclick="exportCSV('log')" class="export-btn">📥 出力</button>
+          <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'log')" hidden></label>
         </div>
-
-        <div class="card" style="margin-top:-5px; background:#f4f4f5; border:1px solid #e5e5ea;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:5px;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">見積: <span id="mock-total-val" style="font-size:24px; font-weight:800; color:#1c1c1e;">0</span></div>
-                <button onclick="undoLast()" style="background:#fff; border:1px solid #d1d1d6; padding:6px 10px; border-radius:6px; font-size:9px; font-weight:bold; color:#8e8e93;">↩ UNDO</button>
-            </div>
-            <div><div class="metric-header"><div class="metric-label">[TICKET] <span id="term-amt-ticket" class="metric-amt">0枚</span></div><div id="term-val-ticket" class="metric-val">100%</div></div><div class="progress-container"><div id="term-bar-ticket" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[DRINK_POOL] <span id="term-amt-drink" class="metric-amt">0円</span></div><div id="term-val-drink" class="metric-val">100%</div></div><div class="progress-container"><div id="term-bar-drink" class="progress-bar"></div></div></div>
-            <div><div class="metric-header"><div class="metric-label">[FOOD_POOL] <span id="term-amt-food" class="metric-amt">0円</span></div><div id="term-val-food" class="metric-val">100%</div></div><div class="progress-container"><div id="term-bar-food" class="progress-bar"></div></div></div>
-        </div>
-
-        <div class="card" style="padding:20px;">
-            <div class="task-selector">
-                <button class="task-btn" onclick="commitTaskA()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task A</b><span id="label-price-a">0</span></button>
-                <button class="task-btn" onclick="commitTaskB()" style="color:var(--drink); border-color:#FFF9F2; background:#FFF9F2;"><b>Task B</b><span id="label-price-b">0</span></button>
-                <button id="btn-task-f" class="task-btn" onclick="selectTaskF()"><b>Task F</b><span>MANUAL</span></button>
-            </div>
-            <div class="num-grid">
-                <button class="num-btn" onclick="commitNum(3)">③</button><button class="num-btn" onclick="commitNum(4)">④</button><button class="num-btn" onclick="commitNum(5)">⑤</button>
-                <button class="num-btn" onclick="commitNum(6)">⑥</button><button class="num-btn" onclick="commitNum(7)">⑦</button><button class="num-btn" onclick="commitNum(8)">⑧</button>
-                <button class="num-btn" onclick="commitNum(9)">⑨</button><button class="num-btn" onclick="commitNum(10)">⑩</button><button class="num-btn" onclick="commitNum(11)">⑪</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div class="extra-toggle"><button id="ext-btn-d" class="ext-btn active-d" onclick="setExtraMode('D')">D</button><button id="ext-btn-f" class="ext-btn" onclick="setExtraMode('F')">F</button></div>
-                <input type="number" id="extra-cost" placeholder="金額を直接入力" inputmode="numeric" style="margin:0;">
-                <button class="main-btn" style="margin-top:8px; background:#5856D6;" onclick="addExtra()">Add Extra Cost</button>
-            </div>
-            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-                <div style="display:flex; gap:8px;"><input type="text" id="stealth-memo-input" placeholder="メモ" style="margin:0;"><button class="main-btn" style="margin:0; width:80px; background:#34C759;" onclick="addStealthMemo()">記録</button></div>
-            </div>
-            <div id="action-log-area" style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; display:none;">
-                <div style="font-size:10px; color:#8e8e93; font-weight:bold;">ACTIVITY_LOG</div><div id="action-log-list" class="action-log-list"></div>
-            </div>
-            <button class="main-btn" style="background:#ff3b30; padding:18px; margin-top:20px;" onclick="showCheckout()">COMPLETE_PROJECT (会計)</button>
-            <div id="log-msg" class="log-msg">SYSTEM: STANDBY<br>AWAITING INPUT...</div>
-        </div>
-    </div>
-  </div>
-
-  <div id="page-fixed" class="page">
-    <h2>毎月の予定（テンプレート）</h2>
-    <div class="card">
-      <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">テンプレート登録・編集</div>
-      <input type="hidden" id="edit-tpl-id">
-      <div style="display:flex; gap:10px;"><input type="number" id="tpl-day" placeholder="日(1〜31)" inputmode="numeric" style="flex:1;"><input type="time" id="tpl-time" value="10:00" style="flex:1;"></div>
-      <select id="tpl-type"><option value="income">収入</option><option value="expense">支出</option></select>
-      <input type="number" id="tpl-amount" placeholder="金額" inputmode="numeric">
-      <input type="text" id="tpl-category" placeholder="カテゴリ"><input type="text" id="tpl-memo" placeholder="メモ">
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button id="tpl-save-btn" class="main-btn" style="margin-top:0;" onclick="saveTemplate()">追加</button>
-          <button id="tpl-cancel-btn" class="main-btn" style="background:#ccc; margin-top:0; display:none;" onclick="cancelEditTemplate()">キャンセル</button>
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
-          <button onclick="downloadFixedCSV()" style="flex:1; background:#007aff; border:none; border-radius:6px; padding:8px; font-size:11px; font-weight:bold; color:white;">📥 FIXED出力</button>
-          <label style="flex:1; background:#34C759; border-radius:6px; padding:8px; font-size:11px; font-weight:bold; color:white; text-align:center; cursor:pointer; margin:0;">📤 FIXED読込<input type="file" accept=".csv" onchange="importFixedCSV(event)" style="display:none;"></label>
+
+      <div class="csv-group">
+        <h3>2. FIXED_COST (固定費)</h3>
+        <div class="btn-row">
+          <button onclick="exportCSV('fixed')" class="export-btn">📥 出力</button>
+          <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'fixed')" hidden></label>
+        </div>
+      </div>
+
+      <div class="csv-group">
+        <h3>3. VAULT_DATA (金庫・口座)</h3>
+        <div class="btn-row">
+          <button onclick="exportCSV('vault')" class="export-btn">📥 出力</button>
+          <label class="import-btn">📤 読込<input type="file" accept=".csv" onchange="importCSV(event, 'vault')" hidden></label>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="card">
-        <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">トリプル・シールド設定 (防衛ライン)</div>
-        <div style="font-size:12px; margin-bottom:5px;">チケット1枚の基準額 (円)</div><input type="number" id="cfg-t-base" inputmode="numeric">
-        <div style="font-size:12px; margin-bottom:5px;">チケット最大枚数</div><input type="number" id="cfg-t-max" inputmode="numeric">
-        <div style="font-size:12px; margin-bottom:5px;">現在の残りチケット枚数</div><input type="number" id="cfg-t-rem" inputmode="numeric">
-        <div style="font-size:12px; margin-bottom:5px;">日常食費POOL残高 (円)</div><input type="number" id="cfg-f-pool" inputmode="numeric">
-        <div style="font-size:12px; margin-bottom:5px;">外食・飲み代POOL残高 (円)</div><input type="number" id="cfg-d-pool" inputmode="numeric">
-        <button class="main-btn" onclick="saveV2Config()">設定（防衛ライン）を適用</button>
-        <button class="main-btn" style="background:#FF9500; margin-top:8px;" onclick="transferFund()">🚨 FUND_TRANSFER (食費 ➔ 飲み代)</button>
+  <!-- ==========================================
+       【VAULT】金庫室（キャッシュポジション）
+  =========================================== -->
+  <section id="tab-vault" class="tab-content">
+    <header class="main-header">
+      <h1>金庫室 / 実資金ポジション</h1>
+    </header>
+
+    <div class="card vault-card">
+      <div class="vault-total-box">
+        <h2>TOTAL REAL CASH</h2>
+        <div id="vault-total" class="amount-large vault-color">¥0</div>
+      </div>
+
+      <div id="vault-list" class="vault-inputs">
+        <!-- JS Dynamic Inputs -->
+      </div>
+      <button class="secondary-btn add-vault-btn" onclick="addVaultAccount()">＋ 口座を追加</button>
     </div>
+  </section>
 
-    <div class="card"><div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">登録済みテンプレート</div><div id="template-list-ui"></div></div>
-  </div>
+  <!-- ==========================================
+       Navigation & Modals
+  =========================================== -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchTab('main')">MAIN</button>
+    <button class="nav-btn terminal-nav" onclick="switchTab('terminal')">TERMINAL</button>
+    <button class="nav-btn" onclick="switchTab('fixd')">FIXD</button>
+    <button class="nav-btn" onclick="switchTab('vault')">VAULT</button>
+  </nav>
 
-  <div id="page-vault" class="page">
-    <h2>金庫室 (VAULTキャッシュ管理)</h2>
-    <div class="card total-box" style="background:#1c1c1e; color:#34C759; border:none;">
-        <div style="font-size:11px; font-weight:700; color:#8e8e93;">TOTAL REAL CASH (実残高合計)</div>
-        <div class="total-amount" id="vault-total" style="font-family:monospace;">¥0</div>
-    </div>
-    
-    <div class="card">
-        <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">口座・決済のカスタム管理</div>
-        <div id="vault-list-ui"></div>
-        <div style="display:flex; gap:8px; margin-top:15px;">
-            <input type="text" id="new-vault-name" placeholder="新しい金庫名 (例: PayPay)" style="margin:0;">
-            <button class="main-btn" style="margin:0; width:100px; font-size:14px;" onclick="addVault()">＋追加</button>
-        </div>
-    </div>
-
-    <div class="card" style="border:1px dashed #007aff; background:#F2F6FF;">
-        <div style="font-size:11px; font-weight:700; color:var(--primary); margin-bottom:5px;">LocalStorage Emergency Backup</div>
-        <button class="main-btn" style="background:var(--primary); font-size:13px; padding:12px;" onclick="exportData()">📤 データ退避/移行用テキストコピー</button>
-        <div id="env-indicator" class="env-text">実行環境: 判定中...</div>
-    </div>
-  </div>
-
-</div>
-
-<div id="checkout-modal" class="modal-overlay">
+  <!-- Modal: FUND TRANSFER -->
+  <div id="modal-transfer" class="modal">
     <div class="modal-content">
-        <h3 style="margin:0 0 10px;">Final Accounting</h3>
-        <input type="number" id="final-amount" placeholder="最終金額" inputmode="numeric">
-        <button class="main-btn" onclick="finishProject()">確定して記録</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCheckout()">キャンセル</button>
+      <h2>資金移動（社長の資金繰り）</h2>
+      <p>食費デポジットから他へ資金を移します。</p>
+      <select id="transfer-to">
+        <option value="D">外食・飲み (D) へ</option>
+        <option value="O">その他予備費 (O) へ</option>
+      </select>
+      <input type="number" id="transfer-amount" placeholder="移動金額 (¥)">
+      <div class="modal-actions">
+        <button onclick="closeModal('modal-transfer')">キャンセル</button>
+        <button class="primary-btn" onclick="executeTransfer()">実行</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<div id="detail-modal" class="modal-overlay"><div class="modal-content" id="detail-content"></div></div>
-
-<div id="stealth-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px;">ログの編集</h3>
-        <input type="hidden" id="stealth-edit-id">
-        <input type="text" id="stealth-edit-label" placeholder="内容">
-        <input type="number" id="stealth-edit-cost" placeholder="金額" inputmode="numeric">
-        <button class="main-btn" onclick="saveActionEdit()">保存</button>
-        <button class="main-btn" style="background:#ccc;" onclick="document.getElementById('stealth-edit-modal').style.display='none'">キャンセル</button>
+  <!-- Modal: ACTIVITY LOG EDIT -->
+  <div id="modal-log" class="modal terminal-mode">
+    <div class="modal-content term-modal">
+      <h2>LOG_DATA_MANAGEMENT</h2>
+      <ul id="full-log-list" class="term-data-list"></ul>
+      <div class="modal-actions">
+        <button onclick="closeModal('modal-log')" class="term-submit">CLOSE_CONNECTION</button>
+      </div>
     </div>
-</div>
+  </div>
 
-<div id="cycle-edit-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="margin:0 0 10px; border-bottom:2px solid #007aff; padding-bottom:5px;">サイクルの期間設定</h3>
-        <p style="font-size:12px; color:#666;">今サイクルの開始日と最終日をカスタム設定できます。</p>
-        <input type="hidden" id="cycle-edit-key">
-        <div style="display:flex; gap:10px; align-items:center; margin:15px 0;">
-            <input type="date" id="cycle-edit-start-date" style="margin:0; padding:10px; flex:1;">
-            <span style="font-weight:bold; color:#8e8e93;">〜</span>
-            <input type="date" id="cycle-edit-date" style="margin:0; padding:10px; flex:1;">
-        </div>
-        <button class="main-btn" style="background:#34C759;" onclick="saveCycleEnd()">設定を保存</button>
-        <button class="main-btn" style="background:#ff3b30;" onclick="resetCycleEnd()">標準に戻す (前月末〜今月末)</button>
-        <button class="main-btn" style="background:#ccc;" onclick="closeCycleEditModal()">キャンセル</button>
-    </div>
-</div>
-
-<nav class="tab-bar">
-    <button class="tab-item active" onclick="switchPage('main', this)">📊 MAIN</button>
-    <button class="tab-item" onclick="switchPage('terminal', this)">🛰️ TERMINAL</button>
-    <button class="tab-item" onclick="switchPage('fixed', this)">🗓️ FIXED</button>
-    <button class="tab-item" onclick="switchPage('vault', this)">🏦 VAULT</button>
-</nav>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
+
