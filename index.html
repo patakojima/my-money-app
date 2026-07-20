@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>Integrated Ops Terminal v7.8</title>
+    <title>Integrated Ops Terminal v7.9</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +20,6 @@
 </div>
 
 <div class="content">
-  <!-- ==================== MAIN PAGE ==================== -->
   <div id="page-main" class="page active">
     <h2 style="display:flex; justify-content:center; align-items:center; gap:10px;">
       <span id="cycle-title">現在の実績</span>
@@ -42,7 +41,6 @@
       <div>今週の予算<span class="budget-val" id="weekRemaining">0円</span></div>
     </div>
 
-    <!-- MAIN: 予算防衛メーター (日本語化) -->
     <div class="card" style="background:#f4f4f5; border:1px solid #e5e5ea; padding-bottom:18px;">
         <div style="font-size:10px; color:#8e8e93; font-weight:bold; margin-bottom:5px;">予算防衛メーター</div>
         <div>
@@ -59,7 +57,6 @@
         </div>
     </div>
 
-    <!-- MAIN: チケット＆POOL残高 -->
     <div class="card">
         <div style="font-size:11px; font-weight:700; color:#8e8e93;">外食・飲み会チケット (カラータイマー連動)</div>
         <div id="ticket-indicator" class="ticket-indicator-container"></div>
@@ -95,19 +92,16 @@
       <button class="main-btn" onclick="addData()">データを記録</button>
     </div>
 
-    <!-- MAIN: CSV出力ボタン削除＆履歴タイトル整理 -->
     <div style="font-size:12px; font-weight:bold; color:#666; margin: 0 5px;">入出金履歴</div>
     <div class="card" id="list" style="margin-top:8px;"></div>
   </div>
 
-  <!-- ==================== TERMINAL PAGE ==================== -->
   <div id="page-terminal" class="page">
     <div id="project-selector-area" class="card">
         <div style="font-size:9px; color:#8e8e93; font-weight:bold; margin-bottom:8px;">SELECT_ACTIVE_PROJECT</div>
         <select id="active-project-id"></select>
     </div>
 
-    <!-- TERMINAL: 店舗プリセット (英語表記化) -->
     <div class="card">
       <div style="font-size:11px; font-weight:700; color:#8e8e93; margin-bottom:10px;">STORE_PRESETS</div>
       <input type="hidden" id="edit-store-id"><input type="text" id="store-name" placeholder="STORE_NAME">
@@ -169,7 +163,6 @@
     </div>
   </div>
 
-  <!-- ==================== FIXED PAGE ==================== -->
   <div id="page-fixed" class="page">
     <h2>毎月の予定（テンプレート）</h2>
     <div class="card">
@@ -201,7 +194,6 @@
       <div id="template-list-ui"></div>
     </div>
 
-    <!-- 3系統独立型 CSV入出力コンソール -->
     <div class="card system-card" style="border: 2px solid #34C759; background: #F2FFF5;">
         <div style="font-size:11px; font-weight:700; color:#34C759; margin-bottom:10px;">システム・データ防衛（CSV一括入出力）</div>
         
@@ -231,7 +223,6 @@
     </div>
   </div>
 
-  <!-- ==================== VAULT PAGE ==================== -->
   <div id="page-vault" class="page">
     <h2>金庫室 (VAULTキャッシュ管理)</h2>
     <div class="card total-box" style="background:#1c1c1e; color:#34C759; border:none;">
@@ -257,7 +248,6 @@
 
 </div>
 
-<!-- Modals -->
 <div id="checkout-modal" class="modal-overlay">
     <div class="modal-content">
         <h3 style="margin:0 0 10px;">Final Accounting</h3>
